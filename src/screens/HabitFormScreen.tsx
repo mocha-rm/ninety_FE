@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   Switch,
 } from 'react-native';
@@ -13,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import CustomButton from '../components/CustomButton';
 import CustomInput from '../components/CustomInput';
 import Logo from '../components/Logo';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import habitService, { Habit, CreateHabitRequest, UpdateHabitRequest } from '../services/habitService';
 
 interface HabitFormScreenProps {
@@ -138,7 +138,7 @@ const HabitFormScreen: React.FC<HabitFormScreenProps> = ({ route, navigation }) 
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.screenTitle}>
           {isEdit ? '습관 수정' : '새 습관 만들기'}
@@ -237,7 +237,7 @@ const HabitFormScreen: React.FC<HabitFormScreenProps> = ({ route, navigation }) 
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 };
 

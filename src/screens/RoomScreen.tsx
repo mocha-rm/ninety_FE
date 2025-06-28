@@ -5,12 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   Dimensions,
 } from 'react-native';
 import { useRoom } from '../contexts/RoomContext';
 import { useGame } from '../contexts/GameContext';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { PlacedRoomItem } from '../types/room';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -107,16 +107,16 @@ const RoomScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaWrapper>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>방을 불러오는 중...</Text>
         </View>
-      </SafeAreaView>
+      </SafeAreaWrapper>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>🏠 내 방</Text>
       </View>
@@ -173,7 +173,7 @@ const RoomScreen: React.FC = () => {
           💡 아이템을 길게 누르면 제거할 수 있습니다
         </Text>
       </View>
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 };
 

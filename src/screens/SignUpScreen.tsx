@@ -13,6 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import CustomInput from '../components/CustomInput';
 import CustomButton from '../components/CustomButton';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { useAuth } from '../contexts/AuthContext';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -120,93 +121,95 @@ const SignUpScreen: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+    <SafeAreaWrapper>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Ninety</Text>
-          <Text style={styles.subtitle}>90-Day Challenge • 회원가입</Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Ninety</Text>
+            <Text style={styles.subtitle}>90-Day Challenge • 회원가입</Text>
+          </View>
 
-        <View style={styles.form}>
-          <CustomInput
-            label="이메일"
-            placeholder="이메일을 입력하세요"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            error={emailError}
-          />
+          <View style={styles.form}>
+            <CustomInput
+              label="이메일"
+              placeholder="이메일을 입력하세요"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              error={emailError}
+            />
 
-          <CustomInput
-            label="비밀번호"
-            placeholder="비밀번호를 입력하세요 (6자 이상)"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            error={passwordError}
-          />
+            <CustomInput
+              label="비밀번호"
+              placeholder="비밀번호를 입력하세요 (6자 이상)"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              error={passwordError}
+            />
 
-          <CustomInput
-            label="비밀번호 확인"
-            placeholder="비밀번호를 다시 입력하세요"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-            error={confirmPasswordError}
-          />
+            <CustomInput
+              label="비밀번호 확인"
+              placeholder="비밀번호를 다시 입력하세요"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              error={confirmPasswordError}
+            />
 
-          <CustomInput
-            label="이름"
-            placeholder="이름을 입력하세요"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-            error={nameError}
-          />
+            <CustomInput
+              label="이름"
+              placeholder="이름을 입력하세요"
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+              error={nameError}
+            />
 
-          <CustomInput
-            label="닉네임"
-            placeholder="닉네임을 입력하세요"
-            value={nickName}
-            onChangeText={setNickName}
-            autoCapitalize="words"
-            error={nickNameError}
-          />
+            <CustomInput
+              label="닉네임"
+              placeholder="닉네임을 입력하세요"
+              value={nickName}
+              onChangeText={setNickName}
+              autoCapitalize="words"
+              error={nickNameError}
+            />
 
-          <CustomInput
-            label="전화번호 (선택사항)"
-            placeholder="전화번호를 입력하세요"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
-            error={phoneNumberError}
-          />
+            <CustomInput
+              label="전화번호 (선택사항)"
+              placeholder="전화번호를 입력하세요"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              keyboardType="phone-pad"
+              error={phoneNumberError}
+            />
 
-          <CustomButton
-            title="회원가입"
-            onPress={handleSignUp}
-            loading={isLoading}
-            style={styles.signUpButton}
-          />
-        </View>
+            <CustomButton
+              title="회원가입"
+              onPress={handleSignUp}
+              loading={isLoading}
+              style={styles.signUpButton}
+            />
+          </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            이미 계정이 있으신가요?{' '}
-            <TouchableOpacity onPress={handleLoginPress}>
-              <Text style={styles.linkText}>로그인</Text>
-            </TouchableOpacity>
-          </Text>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              이미 계정이 있으신가요?{' '}
+              <TouchableOpacity onPress={handleLoginPress}>
+                <Text style={styles.linkText}>로그인</Text>
+              </TouchableOpacity>
+            </Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaWrapper>
   );
 };
 

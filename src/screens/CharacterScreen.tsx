@@ -5,13 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   Modal,
   TextInput,
 } from 'react-native';
 import { useCharacter } from '../contexts/CharacterContext';
 import { useGame } from '../contexts/GameContext';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { UserCharacter } from '../types/character';
 import characterService from '../services/characterService';
 
@@ -279,16 +279,16 @@ const CharacterScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaWrapper>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>캐릭터를 불러오는 중...</Text>
         </View>
-      </SafeAreaView>
+      </SafeAreaWrapper>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>🐾 내 캐릭터</Text>
         {userGameData && (
@@ -395,7 +395,7 @@ const CharacterScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 };
 

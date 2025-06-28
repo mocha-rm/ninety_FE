@@ -13,6 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import CustomInput from '../components/CustomInput';
 import CustomButton from '../components/CustomButton';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { useAuth } from '../contexts/AuthContext';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -80,72 +81,74 @@ const LoginScreen: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+    <SafeAreaWrapper>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Ninety</Text>
-          <Text style={styles.subtitle}>90-Day Challenge • 당신의 습관을 바꿔보세요</Text>
-        </View>
-
-        <View style={styles.form}>
-          <CustomInput
-            label="이메일"
-            placeholder="이메일을 입력하세요"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            error={emailError}
-          />
-
-          <CustomInput
-            label="비밀번호"
-            placeholder="비밀번호를 입력하세요"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            error={passwordError}
-          />
-
-          <CustomButton
-            title="로그인"
-            onPress={handleEmailLogin}
-            loading={isLoading}
-            style={styles.loginButton}
-          />
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>또는</Text>
-            <View style={styles.dividerLine} />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Ninety</Text>
+            <Text style={styles.subtitle}>90-Day Challenge • 당신의 습관을 바꿔보세요</Text>
           </View>
 
-          <CustomButton
-            title="테스트 로그인 (개발용)"
-            onPress={() => {
-              Alert.alert('테스트', '테스트 로그인 기능입니다.');
-            }}
-            variant="outline"
-            style={styles.googleButton}
-          />
-        </View>
+          <View style={styles.form}>
+            <CustomInput
+              label="이메일"
+              placeholder="이메일을 입력하세요"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              error={emailError}
+            />
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            계정이 없으신가요?{' '}
-            <TouchableOpacity onPress={handleSignUpPress}>
-              <Text style={styles.linkText}>회원가입</Text>
-            </TouchableOpacity>
-          </Text>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            <CustomInput
+              label="비밀번호"
+              placeholder="비밀번호를 입력하세요"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              error={passwordError}
+            />
+
+            <CustomButton
+              title="로그인"
+              onPress={handleEmailLogin}
+              loading={isLoading}
+              style={styles.loginButton}
+            />
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>또는</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <CustomButton
+              title="테스트 로그인 (개발용)"
+              onPress={() => {
+                Alert.alert('테스트', '테스트 로그인 기능입니다.');
+              }}
+              variant="outline"
+              style={styles.googleButton}
+            />
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              계정이 없으신가요?{' '}
+              <TouchableOpacity onPress={handleSignUpPress}>
+                <Text style={styles.linkText}>회원가입</Text>
+              </TouchableOpacity>
+            </Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaWrapper>
   );
 };
 

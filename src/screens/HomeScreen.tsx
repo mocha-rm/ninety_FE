@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -16,6 +15,7 @@ import { useGame } from '../contexts/GameContext';
 import CustomButton from '../components/CustomButton';
 import Logo from '../components/Logo';
 import GameStats from '../components/GameStats';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import habitService, { Habit, HabitsPageResponse } from '../services/habitService';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -118,16 +118,16 @@ const HomeScreen: React.FC = () => {
 
   if (loading && habits.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaWrapper>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>로딩 중...</Text>
         </View>
-      </SafeAreaView>
+      </SafeAreaWrapper>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper>
       <View style={styles.header}>
         <View style={styles.headerCenter}>
           <Logo size={32} />
@@ -230,7 +230,7 @@ const HomeScreen: React.FC = () => {
           />
         </View>
       </View>
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 };
 

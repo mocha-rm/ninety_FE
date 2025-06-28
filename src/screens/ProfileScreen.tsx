@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   TextInput,
   Modal,
@@ -14,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import CustomButton from '../components/CustomButton';
 import CustomInput from '../components/CustomInput';
 import Logo from '../components/Logo';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import userService, { UserProfileResponse, UpdateNicknameRequest, UpdatePasswordRequest } from '../services/userService';
 
 const ProfileScreen: React.FC = () => {
@@ -145,16 +145,16 @@ const ProfileScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaWrapper>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>로딩 중...</Text>
         </View>
-      </SafeAreaView>
+      </SafeAreaWrapper>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper>
       <View style={styles.header}>
         <View style={styles.headerCenter}>
           <Logo size={32} />
@@ -292,7 +292,7 @@ const ProfileScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 };
 

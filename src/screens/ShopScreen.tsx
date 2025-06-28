@@ -5,11 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
 } from 'react-native';
 import { useRoom } from '../contexts/RoomContext';
 import { useGame } from '../contexts/GameContext';
+import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { ShopItem } from '../types/room';
 
 const ShopScreen: React.FC = () => {
@@ -99,7 +99,7 @@ const ShopScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaWrapper>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>🛒 상점</Text>
         {userGameData && (
@@ -181,7 +181,7 @@ const ShopScreen: React.FC = () => {
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaWrapper>
   );
 };
 
