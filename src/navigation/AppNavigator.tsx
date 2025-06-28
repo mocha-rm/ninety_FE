@@ -4,12 +4,17 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useAuth } from '../contexts/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
-import HomeScreen from '../screens/HomeScreen';
+import TabNavigator from './TabNavigator';
+import HabitFormScreen from '../screens/HabitFormScreen';
 
 export type RootStackParamList = {
   Login: undefined;
   SignUp: undefined;
-  Home: undefined;
+  Main: undefined;
+  HabitForm: {
+    habit?: any;
+    isEdit?: boolean;
+  };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -31,7 +36,24 @@ const AppNavigator: React.FC = () => {
       >
         {isAuthenticated ? (
           // 인증된 사용자
-          <Stack.Screen name="Home" component={HomeScreen} />
+          <>
+            <Stack.Screen name="Main" component={TabNavigator} />
+            <Stack.Screen 
+              name="HabitForm" 
+              component={HabitFormScreen}
+              options={{
+                headerShown: true,
+                title: '습관 만들기',
+                headerStyle: {
+                  backgroundColor: '#fcf8f9',
+                },
+                headerTintColor: '#1b0d12',
+                headerTitleStyle: {
+                  fontWeight: 'bold',
+                },
+              }}
+            />
+          </>
         ) : (
           // 인증되지 않은 사용자
           <>

@@ -1,8 +1,21 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Expo 개발 환경에서는 localhost를 사용할 수 있습니다
-const BASE_URL = 'http://localhost:8080'; // 스프링 백엔드 서버 주소
+// 개발 환경에 따른 BASE_URL 설정
+const getBaseUrl = () => {
+  if (__DEV__) {
+    // 실제 기기에서 테스트할 때는 컴퓨터의 IP 주소를 사용해야 합니다
+    return 'http://204.218.7.21:8080'; // 실제 컴퓨터 IP 주소
+    
+    // 시뮬레이터에서만 사용할 수 있는 localhost
+    // return 'http://localhost:8080';
+  }
+  
+  // 프로덕션 환경에서는 실제 서버 URL 사용
+  return 'https://your-production-server.com';
+};
+
+const BASE_URL = getBaseUrl();
 
 class ApiService {
   private api: AxiosInstance;
@@ -16,6 +29,9 @@ class ApiService {
       },
     });
 
+    // 디버깅을 위한 로그
+    console.log('API Service initialized with BASE_URL:', BASE_URL);
+
     this.setupInterceptors();
   }
 
@@ -23,6 +39,7 @@ class ApiService {
     // Request interceptor
     this.api.interceptors.request.use(
       async (config) => {
+        console.log('API Request:', config.method?.toUpperCase(), config.url);
         const token = await AsyncStorage.getItem('accessToken');
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
@@ -30,6 +47,7 @@ class ApiService {
         return config;
       },
       (error) => {
+        console.error('Request Error:', error);
         return Promise.reject(error);
       }
     );
@@ -37,9 +55,11 @@ class ApiService {
     // Response interceptor
     this.api.interceptors.response.use(
       (response: AxiosResponse) => {
+        console.log('API Response:', response.status, response.config.url);
         return response;
       },
       async (error) => {
+        console.error('Response Error:', error.response?.status, error.response?.data);
         const originalRequest = error.config;
 
         if (error.response?.status === 401 && !originalRequest._retry) {
@@ -78,6 +98,19 @@ class ApiService {
 
   public getInstance(): AxiosInstance {
     return this.api;
+  }
+
+  // API 연결 테스트 함수
+  public async testConnection(): Promise<boolean> {
+    try {
+      console.log('Testing API connection to:', BASE_URL);
+      const response = await this.api.get('/api/health'); // 또는 다른 간단한 엔드포인트
+      console.log('Connection test successful:', response.status);
+      return true;
+    } catch (error) {
+      console.error('Connection test failed:', error);
+      return false;
+    }
   }
 }
 

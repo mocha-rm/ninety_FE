@@ -17,6 +17,8 @@ interface CustomInputProps {
   secureTextEntry?: boolean;
   keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  multiline?: boolean;
+  numberOfLines?: number;
   error?: string;
   disabled?: boolean;
   style?: ViewStyle;
@@ -31,6 +33,8 @@ const CustomInput: React.FC<CustomInputProps> = ({
   secureTextEntry = false,
   keyboardType = 'default',
   autoCapitalize = 'none',
+  multiline = false,
+  numberOfLines = 1,
   error,
   disabled = false,
   style,
@@ -66,6 +70,8 @@ const CustomInput: React.FC<CustomInputProps> = ({
           secureTextEntry={secureTextEntry && !showPassword}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
           editable={!disabled}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}

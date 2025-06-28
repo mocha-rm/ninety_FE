@@ -81,8 +81,8 @@ const LoginScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>90-Day Challenge</Text>
-          <Text style={styles.subtitle}>당신의 습관을 바꿔보세요</Text>
+          <Text style={styles.title}>Ninety</Text>
+          <Text style={styles.subtitle}>90-Day Challenge • 당신의 습관을 바꿔보세요</Text>
         </View>
 
         <View style={styles.form}>

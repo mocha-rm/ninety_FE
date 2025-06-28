@@ -129,8 +129,8 @@ const SignUpScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>회원가입</Text>
-          <Text style={styles.subtitle}>90-Day Challenge에 참여하세요</Text>
+          <Text style={styles.title}>Ninety</Text>
+          <Text style={styles.subtitle}>90-Day Challenge • 회원가입</Text>
         </View>
 
         <View style={styles.form}>

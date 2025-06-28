@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "ninety_frontend_expo",
-    "slug": "ninety_frontend_expo",
+    "name": "Ninety",
+    "slug": "ninety",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
