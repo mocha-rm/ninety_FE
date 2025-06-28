@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const getBaseUrl = () => {
   if (__DEV__) {
     // 실제 기기에서 테스트할 때는 컴퓨터의 IP 주소를 사용해야 합니다
-    return 'http://204.218.7.21:8080'; // 실제 컴퓨터 IP 주소
+    return 'http://172.30.1.63:8080'; // 실제 컴퓨터 IP 주소
     
     // 시뮬레이터에서만 사용할 수 있는 localhost
     // return 'http://localhost:8080';
@@ -17,8 +17,12 @@ const getBaseUrl = () => {
 
 const BASE_URL = getBaseUrl();
 
+// AuthContext와의 연동을 위한 콜백 함수 타입
+type LogoutCallback = () => void;
+
 class ApiService {
   private api: AxiosInstance;
+  private logoutCallback: LogoutCallback | null = null;
 
   constructor() {
     this.api = axios.create({
@@ -33,6 +37,11 @@ class ApiService {
     console.log('API Service initialized with BASE_URL:', BASE_URL);
 
     this.setupInterceptors();
+  }
+
+  // AuthContext에서 로그아웃 콜백 등록
+  public setLogoutCallback(callback: LogoutCallback) {
+    this.logoutCallback = callback;
   }
 
   private setupInterceptors() {
@@ -62,24 +71,30 @@ class ApiService {
         console.error('Response Error:', error.response?.status, error.response?.data);
         const originalRequest = error.config;
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // 401 Unauthorized 또는 404 Not Found 에러 처리
+        if ((error.response?.status === 401 || error.response?.status === 404) && !originalRequest._retry) {
           originalRequest._retry = true;
 
-          try {
-            const refreshToken = await AsyncStorage.getItem('refreshToken');
-            if (refreshToken) {
-              const response = await this.refreshToken(refreshToken);
-              const { accessToken } = response.data;
-              
-              await AsyncStorage.setItem('accessToken', accessToken);
-              originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-              
-              return this.api(originalRequest);
+          // 401 에러의 경우 토큰 갱신 시도
+          if (error.response?.status === 401) {
+            try {
+              const refreshToken = await AsyncStorage.getItem('refreshToken');
+              if (refreshToken) {
+                const response = await this.refreshToken(refreshToken);
+                const { accessToken } = response.data;
+                
+                await AsyncStorage.setItem('accessToken', accessToken);
+                originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+                
+                return this.api(originalRequest);
+              }
+            } catch (refreshError) {
+              console.error('Token refresh failed:', refreshError);
             }
-          } catch (refreshError) {
-            // Refresh token도 만료된 경우 로그아웃 처리
-            await this.logout();
           }
+
+          // 토큰 갱신 실패 또는 404 에러의 경우 자동 로그아웃
+          await this.handleAutoLogout();
         }
 
         return Promise.reject(error);
@@ -87,9 +102,16 @@ class ApiService {
     );
   }
 
-  private async logout() {
+  private async handleAutoLogout() {
+    console.log('Auto logout triggered due to authentication error');
+    
+    // 로컬 저장소 정리
     await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'user']);
-    // 로그인 화면으로 리다이렉트 로직 추가 필요
+    
+    // AuthContext의 로그아웃 콜백 호출
+    if (this.logoutCallback) {
+      this.logoutCallback();
+    }
   }
 
   private async refreshToken(refreshToken: string) {

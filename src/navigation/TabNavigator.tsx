@@ -2,10 +2,16 @@ import React from 'react';
 import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import HomeScreen from '../screens/HomeScreen';
+import RoomScreen from '../screens/RoomScreen';
+import ShopScreen from '../screens/ShopScreen';
+import CharacterScreen from '../screens/CharacterScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
 export type TabParamList = {
   Home: undefined;
+  Room: undefined;
+  Shop: undefined;
+  Character: undefined;
   Profile: undefined;
 };
 
@@ -38,7 +44,37 @@ const TabNavigator: React.FC = () => {
         options={{
           tabBarLabel: '홈',
           tabBarIcon: ({ color, size }) => (
+            <Text style={{ color, fontSize: size }}>📋</Text>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Room"
+        component={RoomScreen}
+        options={{
+          tabBarLabel: '방',
+          tabBarIcon: ({ color, size }) => (
             <Text style={{ color, fontSize: size }}>🏠</Text>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Shop"
+        component={ShopScreen}
+        options={{
+          tabBarLabel: '상점',
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ color, fontSize: size }}>🛒</Text>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Character"
+        component={CharacterScreen}
+        options={{
+          tabBarLabel: '캐릭터',
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ color, fontSize: size }}>🐾</Text>
           ),
         }}
       />

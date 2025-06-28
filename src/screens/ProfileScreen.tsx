@@ -36,9 +36,13 @@ const ProfileScreen: React.FC = () => {
       setLoading(true);
       const userProfile = await userService.getMyProfile();
       setProfile(userProfile);
-    } catch (error) {
+    } catch (error: any) {
       console.error('프로필 로드 실패:', error);
-      Alert.alert('오류', '프로필 정보를 불러오는데 실패했습니다.');
+      
+      // 401/404 에러의 경우 자동 로그아웃이 처리되므로 별도 알림 불필요
+      if (error.response?.status !== 401 && error.response?.status !== 404) {
+        Alert.alert('오류', '프로필 정보를 불러오는데 실패했습니다.');
+      }
     } finally {
       setLoading(false);
     }

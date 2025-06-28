@@ -12,8 +12,10 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useGame } from '../contexts/GameContext';
 import CustomButton from '../components/CustomButton';
 import Logo from '../components/Logo';
+import GameStats from '../components/GameStats';
 import habitService, { Habit, HabitsPageResponse } from '../services/habitService';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
@@ -22,10 +24,12 @@ type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { user, logout } = useAuth();
+  const { earnCoins, earnExperience } = useGame();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [completingHabits, setCompletingHabits] = useState<Set<number>>(new Set());
 
   useFocusEffect(
     useCallback(() => {
@@ -44,9 +48,13 @@ const HomeScreen: React.FC = () => {
       }
       setCurrentPage(response.number);
       setHasMore(!response.last);
-    } catch (error) {
+    } catch (error: any) {
       console.error('습관 로드 실패:', error);
-      Alert.alert('오류', '습관 정보를 불러오는데 실패했습니다.');
+      
+      // 401/404 에러의 경우 자동 로그아웃이 처리되므로 별도 알림 불필요
+      if (error.response?.status !== 401 && error.response?.status !== 404) {
+        Alert.alert('오류', '습관 정보를 불러오는데 실패했습니다.');
+      }
     } finally {
       setLoading(false);
     }
@@ -64,6 +72,39 @@ const HomeScreen: React.FC = () => {
 
   const handleEditHabit = (habit: Habit) => {
     navigation.navigate('HabitForm', { habit, isEdit: true });
+  };
+
+  const handleCompleteHabit = async (habit: Habit) => {
+    if (completingHabits.has(habit.id)) return;
+
+    try {
+      setCompletingHabits(prev => new Set(prev).add(habit.id));
+      
+      // 습관 완료 처리
+      await habitService.completeHabit(habit.id);
+      
+      // 게임 보상 지급
+      await earnCoins(10); // 습관 완료시 10코인
+      await earnExperience(20); // 습관 완료시 20경험치
+      
+      Alert.alert(
+        '🎉 습관 완료!',
+        `축하합니다!\n💰 +10 코인\n⭐ +20 경험치`,
+        [{ text: '확인' }]
+      );
+      
+      // 습관 목록 새로고침
+      loadHabits(0);
+    } catch (error: any) {
+      console.error('습관 완료 실패:', error);
+      Alert.alert('오류', '습관 완료에 실패했습니다.');
+    } finally {
+      setCompletingHabits(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(habit.id);
+        return newSet;
+      });
+    }
   };
 
   const getRepeatDaysLabel = (repeatDays: string[]) => {
@@ -101,6 +142,8 @@ const HomeScreen: React.FC = () => {
         </Text>
         <Text style={styles.subtitle}>오늘의 습관을 확인해보세요</Text>
       </View>
+
+      <GameStats />
 
       <Text style={styles.sectionTitle}>습관 목록</Text>
 
@@ -153,6 +196,18 @@ const HomeScreen: React.FC = () => {
                   onPress={() => handleEditHabit(habit)}
                 >
                   <Text style={styles.editButtonText}>✏️</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.completeButton,
+                    completingHabits.has(habit.id) && styles.completingButton
+                  ]}
+                  onPress={() => handleCompleteHabit(habit)}
+                  disabled={completingHabits.has(habit.id)}
+                >
+                  <Text style={styles.completeButtonText}>
+                    {completingHabits.has(habit.id) ? '완료 중...' : '✅'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -351,6 +406,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     minWidth: 120,
+  },
+  completeButton: {
+    padding: 8,
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  completingButton: {
+    backgroundColor: '#6366F1',
+    borderRadius: 8,
+  },
+  completeButtonText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
 

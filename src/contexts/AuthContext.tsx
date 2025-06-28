@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { AuthState, UserJwtResponse } from '../types/auth';
 import authService from '../services/authService';
+import { apiService } from '../services/api';
+import { Alert } from 'react-native';
 
 interface AuthContextType extends AuthState {
   signUp: (email: string, password: string, name: string, nickName: string, phoneNumber: string) => Promise<void>;
@@ -17,6 +19,7 @@ type AuthAction =
   | { type: 'AUTH_SUCCESS'; payload: UserJwtResponse }
   | { type: 'AUTH_FAILURE'; payload: string }
   | { type: 'LOGOUT' }
+  | { type: 'AUTO_LOGOUT' }
   | { type: 'CLEAR_ERROR' };
 
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
@@ -51,6 +54,14 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         isLoading: false,
         error: null,
       };
+    case 'AUTO_LOGOUT':
+      return {
+        ...state,
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: '서버 연결이 끊어져 자동으로 로그아웃되었습니다. 다시 로그인해주세요.',
+      };
     case 'CLEAR_ERROR':
       return {
         ...state,
@@ -76,6 +87,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   useEffect(() => {
+    // API 서비스에 로그아웃 콜백 등록
+    apiService.setLogoutCallback(() => {
+      console.log('Auto logout callback triggered');
+      
+      // 자동 로그아웃 알림 표시
+      Alert.alert(
+        '자동 로그아웃',
+        '서버 연결이 끊어져 자동으로 로그아웃되었습니다.\n다시 로그인해주세요.',
+        [{ text: '확인' }]
+      );
+      
+      dispatch({ type: 'AUTO_LOGOUT' });
+    });
+
     checkAutoLogin();
   }, []);
 
@@ -88,6 +113,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         dispatch({ type: 'AUTH_FAILURE', payload: '' });
       }
     } catch (error) {
+      console.error('Auto login check failed:', error);
       dispatch({ type: 'AUTH_FAILURE', payload: '자동 로그인 실패' });
     }
   };

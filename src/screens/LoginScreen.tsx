@@ -28,7 +28,15 @@ const LoginScreen: React.FC = () => {
 
   useEffect(() => {
     if (error) {
-      Alert.alert('로그인 실패', error);
+      if (error.includes('자동으로 로그아웃되었습니다')) {
+        Alert.alert(
+          '자동 로그아웃',
+          '개발 서버가 재시작되어 자동으로 로그아웃되었습니다.\n다시 로그인해주세요.',
+          [{ text: '확인' }]
+        );
+      } else {
+        Alert.alert('로그인 실패', error);
+      }
       clearError();
     }
   }, [error, clearError]);
