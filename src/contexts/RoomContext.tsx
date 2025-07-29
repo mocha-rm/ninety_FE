@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { UserRoom } from '../types/room';
 import { roomService } from '../services/roomService';
 import { useAuth } from './AuthContext';
@@ -28,7 +28,7 @@ export const RoomProvider: React.FC<RoomProviderProps> = ({ children }) => {
   const [userRoom, setUserRoom] = useState<UserRoom | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadUserRoom = async () => {
+  const loadUserRoom = useCallback(async () => {
     if (!user) {
       setUserRoom(null);
       setLoading(false);
@@ -45,15 +45,15 @@ export const RoomProvider: React.FC<RoomProviderProps> = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  const refreshUserRoom = async () => {
+  const refreshUserRoom = useCallback(async () => {
     await loadUserRoom();
-  };
+  }, [loadUserRoom]);
 
   useEffect(() => {
     loadUserRoom();
-  }, [user]);
+  }, [user, loadUserRoom]);
 
   const value: RoomContextType = {
     userRoom,

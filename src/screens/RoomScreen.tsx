@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, Image, Modal, FlatList, ScrollView } from 'react-native';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
 import { useRoom } from '../contexts/RoomContext';
@@ -8,21 +8,114 @@ import userItemService from '../services/userItemService';
 import roomService from '../services/roomService';
 import { PlacedItem, RoomItem, ItemCategory, UserItem } from '../types/room';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback } from 'react';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, runOnJS } from 'react-native-reanimated';
 
 // 기본 배경 이미지 (로컬 에셋)
 const DEFAULT_BACKGROUND_IMAGE = require('../../assets/images/room_backgrounds/default_background.png');
 
+interface DraggablePlacedItemProps {
+  item: PlacedItem;
+  imageUrl: string;
+  roomDimensions: { width: number; height: number };
+  onMoveEnd: (x: number, y: number) => void;
+  onRemove: () => void;
+}
+
+const DraggablePlacedItem: React.FC<DraggablePlacedItemProps> = ({ 
+  item, 
+  imageUrl, 
+  roomDimensions, 
+  onMoveEnd, 
+  onRemove 
+}) => {
+  const translateX = useSharedValue(item.posX);
+  const translateY = useSharedValue(item.posY);
+
+  const itemWidth = 100; // 아이템의 실제 너비 (스타일과 일치해야 함)
+  const itemHeight = 100; // 아이템의 실제 높이 (스타일과 일치해야 함)
+
+  const pan = Gesture.Pan()
+    .onBegin(() => {
+      // 시작 시 현재 위치 저장
+    })
+    .onUpdate((event) => {
+      const newX = item.posX + event.translationX;
+      const newY = item.posY + event.translationY;
+
+      // 바운더리 제한
+      translateX.value = Math.max(0, Math.min(newX, roomDimensions.width - itemWidth));
+      translateY.value = Math.max(0, Math.min(newY, roomDimensions.height - itemHeight));
+    })
+    .onEnd(() => {
+      runOnJS(onMoveEnd)(translateX.value, translateY.value);
+    });
+
+  const tap = Gesture.Tap()
+    .onEnd(() => {
+      runOnJS(onRemove)();
+    });
+
+  const composed = Gesture.Simultaneous(pan, tap);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { rotate: `${item.rotation}deg` },
+    ],
+    width: itemWidth,
+    height: itemHeight,
+  }));
+
+  return (
+    <GestureDetector gesture={composed}>
+      <Animated.Image
+        source={{ uri: imageUrl }}
+        style={[styles.placedItemImage, animatedStyle]}
+        resizeMode="contain"
+      />
+    </GestureDetector>
+  );
+};
+
 const RoomScreen: React.FC = () => {
   const { userRoom, loading, refreshUserRoom } = useRoom();
-  const { activeCharacter } = useCharacter();
-  const [itemDetails, setItemDetails] = useState<{[key: number]: RoomItem}>({});
+  const { activeCharacter, refreshCharacters } = useCharacter();
   const [myItemsModalVisible, setMyItemsModalVisible] = useState(false);
   const [myRoomItems, setMyRoomItems] = useState<UserItem[]>([]);
   const [myItemsLoading, setMyItemsLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory | 'all'>('all');
+  const [roomDimensions, setRoomDimensions] = useState({ width: 0, height: 0 });
+
+  const handleRemovePlacedItem = async (placedItemId: number) => {
+    if (!userRoom) return;
+
+    Alert.alert(
+      '아이템 제거',
+      '정말로 이 아이템을 방에서 제거하시겠습니까? (인벤토리로 돌아갑니다)',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '제거',
+          onPress: async () => {
+            try {
+              await roomService.removeItem(userRoom.userRoomId, placedItemId);
+              Alert.alert('성공', '아이템이 방에서 제거되었습니다.');
+              refreshUserRoom();
+            } catch (e: any) {
+              console.error('아이템 제거 실패:', e);
+              const message = e.response?.data?.message || '아이템 제거에 실패했습니다.';
+              Alert.alert('오류', message);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const itemCategories = [
     { id: 'all', label: '전체', emoji: '🏪' },
@@ -36,26 +129,9 @@ const RoomScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       refreshUserRoom();
-    }, [])
+      refreshCharacters();
+    }, [refreshUserRoom, refreshCharacters])
   );
-
-  useEffect(() => {
-    const fetchItemDetails = async () => {
-      if (userRoom && userRoom.items.length > 0) {
-        const details: {[key: number]: RoomItem} = {};
-        for (const item of userRoom.items) {
-          try {
-            const detail = await roomItemService.getRoomItem(item.roomItemId);
-            details[item.roomItemId] = detail;
-          } catch (error) {
-            console.error(`Failed to fetch details for room item ${item.roomItemId}:`, error);
-          }
-        }
-        setItemDetails(details);
-      }
-    };
-    fetchItemDetails();
-  }, [userRoom]);
 
   const handleCreateInitialRoom = async () => {
     try {
@@ -74,6 +150,7 @@ const RoomScreen: React.FC = () => {
     setMyItemsModalVisible(true);
     try {
       const res = await userItemService.getUserItems();
+      console.log('My Room Items:', res.content); // 추가된 console.log
       setMyRoomItems(res.content);
     } catch (e) {
       Alert.alert('오류', '내 아이템을 불러오지 못했습니다.');
@@ -89,10 +166,9 @@ const RoomScreen: React.FC = () => {
   const handlePlaceItem = async (item: UserItem) => {
     if (!userRoom) return;
     try {
-      await roomService.placeItem(userRoom.userRoomId, {
-        roomItemId: item.itemId,
-        x: 100, // 방 중앙(임시값, 추후 개선 가능)
-        y: 100,
+      await roomService.placeItem(userRoom.userRoomId, item.id, {
+        posX: 100, // 방 중앙(임시값, 추후 개선 가능)
+        posY: 100,
         rotation: 0,
       });
       Alert.alert('성공', '아이템이 방에 배치되었습니다!');
@@ -104,9 +180,10 @@ const RoomScreen: React.FC = () => {
   };
 
   const getBackgroundImageSource = () => {
-    const backgroundItem = userRoom?.items.find(item => itemDetails[item.roomItemId]?.category === ItemCategory.BACKGROUND);
-    if (backgroundItem && itemDetails[backgroundItem.roomItemId]?.imageUrl) {
-      return { uri: itemDetails[backgroundItem.roomItemId]?.imageUrl };
+    if (!userRoom || !userRoom.items) return DEFAULT_BACKGROUND_IMAGE;
+    const backgroundItem = userRoom.items.find(item => item.category === ItemCategory.BACKGROUND);
+    if (backgroundItem && backgroundItem.imageUrl) {
+      return { uri: backgroundItem.imageUrl };
     } else {
       return DEFAULT_BACKGROUND_IMAGE;
     }
@@ -135,23 +212,25 @@ const RoomScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
         {userRoom ? (
-          <View style={styles.roomContent}>
+          <View style={styles.roomContent} onLayout={(event) => {
+            const { width, height } = event.nativeEvent.layout;
+            setRoomDimensions({ width, height });
+          }}>
             <Image source={backgroundImageSource} style={styles.roomBackground} />
             <View style={styles.placedItemsContainer}>
-              {userRoom.items.map((item: PlacedItem) => {
-                const detail = itemDetails[item.roomItemId];
-                if (!detail || detail.category === ItemCategory.BACKGROUND) return null; // 배경 이미지는 따로 처리
+              {userRoom && userRoom.items && userRoom.items.map((item: PlacedItem) => {
+                if (!item.imageUrl || item.category === ItemCategory.BACKGROUND) return null; // 배경 이미지는 따로 처리
                 return (
                   <DraggablePlacedItem
-                    key={item.placedItemId}
+                    key={item.id}
                     item={item}
-                    detail={detail}
+                    imageUrl={item.imageUrl}
+                    roomDimensions={roomDimensions}
                     onMoveEnd={async (x, y) => {
                       try {
-                        await roomService.moveItem(userRoom.userRoomId, item.placedItemId, {
-                          roomItemId: item.roomItemId,
-                          x: Math.round(x),
-                          y: Math.round(y),
+                        await roomService.moveItem(userRoom.userRoomId, item.id, {
+                          posX: Math.round(x),
+                          posY: Math.round(y),
                           rotation: item.rotation,
                         });
                         refreshUserRoom();
@@ -159,6 +238,7 @@ const RoomScreen: React.FC = () => {
                         Alert.alert('오류', '아이템 이동에 실패했습니다.');
                       }
                     }}
+                    onRemove={() => handleRemovePlacedItem(item.id)}
                   />
                 );
               })}
@@ -232,8 +312,14 @@ const RoomScreen: React.FC = () => {
                           <Text style={styles.itemDescCard}>{item.itemDescription}</Text>
                           <Text style={styles.itemCategoryCard}>{itemCategories.find(c => c.id === item.category)?.label || item.category}</Text>
                         </View>
-                        <TouchableOpacity style={styles.placeButtonCard} onPress={() => handlePlaceItem(item)}>
-                          <Text style={styles.placeButtonTextCard}>배치</Text>
+                        <TouchableOpacity
+                          style={[styles.placeButtonCard, item.placed && styles.placedButtonCard]}
+                          onPress={() => handlePlaceItem(item)}
+                          disabled={item.placed}
+                        >
+                          <Text style={styles.placeButtonTextCard}>
+                            {item.placed ? '배치됨' : '배치'}
+                          </Text>
                         </TouchableOpacity>
                       </View>
                     ))
@@ -247,46 +333,6 @@ const RoomScreen: React.FC = () => {
         </View>
       </Modal>
     </SafeAreaWrapper>
-  );
-};
-
-const DraggablePlacedItem = ({ item, detail, onMoveEnd }: { item: PlacedItem, detail: RoomItem, onMoveEnd: (x: number, y: number) => void }) => {
-  const translateX = useSharedValue(item.x);
-  const translateY = useSharedValue(item.y);
-
-  const pan = Gesture.Pan()
-    .onBegin(() => {
-      // 시작 시 현재 위치 저장
-    })
-    .onUpdate((event) => {
-      translateX.value = item.x + event.translationX;
-      translateY.value = item.y + event.translationY;
-    })
-    .onEnd(() => {
-      runOnJS(onMoveEnd)(translateX.value, translateY.value);
-    });
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { rotate: `${item.rotation}deg` },
-    ],
-    width: 60,
-    height: 60,
-  }));
-
-  return (
-    <GestureDetector gesture={pan}>
-      <Animated.Image
-        source={{ uri: detail.imageUrl }}
-        style={[styles.placedItemImage, animatedStyle]}
-        resizeMode="contain"
-      />
-    </GestureDetector>
   );
 };
 
@@ -350,14 +396,17 @@ const styles = StyleSheet.create({
     width: 100, // 임시 크기, 실제 아이템 크기에 따라 조절 필요
     height: 100, // 임시 크기, 실제 아이템 크기에 따라 조절 필요
     resizeMode: 'contain',
+    zIndex: 1, // 아이템이 배경 위에 오도록 설정
   },
   activeCharacterImage: {
     position: 'absolute',
-    width: 80, // 임시 크기
-    height: 80, // 임시 크기
-    bottom: 20,
-    right: 20,
+    width: 120, // 캐릭터 크기 조정
+    height: 120, // 캐릭터 크기 조정
+    bottom: 50, // 바닥에서부터의 거리 조정
+    left: '50%', // 중앙 정렬을 위해 left 50% 설정
+    marginLeft: -60, // width의 절반만큼 margin-left 음수 값으로 설정하여 정확한 중앙 정렬
     resizeMode: 'contain',
+    zIndex: 2, // 캐릭터가 아이템 위에 오도록 설정
   },
   emptyRoom: {
     flex: 1,
@@ -565,6 +614,9 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  placedButtonCard: {
+    backgroundColor: '#ccc',
   },
   emptyState: {
     alignItems: 'center',

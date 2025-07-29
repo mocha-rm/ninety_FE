@@ -29,7 +29,10 @@ export interface UserCharacter {
   character: Character; // 백엔드 DTO와 다르게 Character 객체를 포함
 }
 
-export interface UserCharacterUpdateRequest {
-  nickname?: string;
-  isActive?: boolean;
+export interface UserCharacterActivationRequest {
+  isActive: boolean;
+}
+
+export interface UserCharacterNicknameUpdateRequest {
+  nickname: string;
 }

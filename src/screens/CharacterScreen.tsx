@@ -26,7 +26,8 @@ const CharacterScreen: React.FC = () => {
     activeCharacter, 
     loading, 
     refreshCharacters, 
-    updateUserCharacterStatus, 
+    manageCharacterActivation, 
+    updateCharacterNickname,
     feedCharacter, 
     playWithCharacter 
   } = useCharacter(); // CharacterContext 사용
@@ -90,7 +91,7 @@ const CharacterScreen: React.FC = () => {
         {
           text: '설정',
           onPress: async () => {
-            const success = await updateUserCharacterStatus(userCharacter.id, true);
+            const success = await manageCharacterActivation(userCharacter.id, true);
             if (success) {
               Alert.alert('성공', '활성 캐릭터가 변경되었습니다!');
             }
@@ -109,7 +110,7 @@ const CharacterScreen: React.FC = () => {
   const handleUpdateNickname = async () => {
     if (!selectedUserCharacter) return;
 
-    const success = await updateUserCharacterStatus(selectedUserCharacter.id, selectedUserCharacter.isActive, newNickname.trim());
+    const success = await updateCharacterNickname(selectedUserCharacter.id, newNickname.trim());
     if (success) {
       Alert.alert('성공', '닉네임이 변경되었습니다!');
       setNicknameModalVisible(false);

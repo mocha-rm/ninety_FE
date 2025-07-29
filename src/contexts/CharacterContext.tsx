@@ -10,7 +10,8 @@ interface CharacterContextType {
   activeCharacter: UserCharacter | null;
   loading: boolean;
   refreshCharacters: () => Promise<void>;
-  updateUserCharacterStatus: (userCharacterId: number, isActive: boolean, nickname?: string) => Promise<boolean>;
+  manageCharacterActivation: (userCharacterId: number, isActive: boolean) => Promise<boolean>;
+  updateCharacterNickname: (userCharacterId: number, nickname: string) => Promise<boolean>;
   purchaseCharacter: (characterId: number) => Promise<boolean>;
   feedCharacter: (userCharacterId: number) => Promise<boolean>;
   playWithCharacter: (userCharacterId: number) => Promise<boolean>;
@@ -49,23 +50,21 @@ export const CharacterProvider: React.FC<CharacterProviderProps> = ({ children }
       const userCharResponse = await userCharacterService.getUserCharacters();
       const fetchedUserCharacters = userCharResponse.content;
 
-      // 각 UserCharacter에 Character 상세 정보 주입
       const charactersWithDetails = await Promise.all(fetchedUserCharacters.map(async (uc) => {
         try {
           const charDetail = await characterService.getCharacter(uc.characterId);
           return { ...uc, character: charDetail };
         } catch (error) {
           console.error(`Failed to fetch details for character ${uc.characterId}:`, error);
-          // Fallback character object to prevent ReferenceError
           return {
             ...uc,
             character: {
               id: uc.characterId,
               name: 'Unknown Character',
               description: 'Failed to load details',
-              rarity: CharacterRarity.COMMON, // Default rarity
+              rarity: CharacterRarity.COMMON, 
               price: 0,
-              imageUrl: 'https://via.placeholder.com/60', // Placeholder image
+              imageUrl: 'https://via.placeholder.com/60',
               createdAt: new Date().toISOString(),
             },
           };
@@ -87,18 +86,31 @@ export const CharacterProvider: React.FC<CharacterProviderProps> = ({ children }
     loadCharacters();
   }, [user, loadCharacters]);
 
-  const refreshCharacters = async () => {
+  const refreshCharacters = useCallback(async () => {
     await loadCharacters();
-  };
+  }, [loadCharacters]);
 
-  const updateUserCharacterStatus = async (userCharacterId: number, isActive: boolean, nickname?: string): Promise<boolean> => {
+  const manageCharacterActivation = async (userCharacterId: number, isActive: boolean): Promise<boolean> => {
     try {
-      await userCharacterService.updateUserCharacter(userCharacterId, { isActive, nickname });
+      await userCharacterService.manageCharacterActivation(userCharacterId, { isActive });
       await refreshCharacters();
       return true;
     } catch (error: any) {
-      console.error('캐릭터 상태 업데이트 실패:', error);
-      const message = error.response?.data?.message || '캐릭터 상태 업데이트에 실패했습니다.';
+      console.error('캐릭터 활성화 상태 변경 실패:', error);
+      const message = error.response?.data?.message || '캐릭터 상태 변경에 실패했습니다.';
+      Alert.alert('오류', message);
+      return false;
+    }
+  };
+
+  const updateCharacterNickname = async (userCharacterId: number, nickname: string): Promise<boolean> => {
+    try {
+      await userCharacterService.updateCharacterNickname(userCharacterId, { nickname });
+      await refreshCharacters();
+      return true;
+    } catch (error: any) {
+      console.error('캐릭터 닉네임 변경 실패:', error);
+      const message = error.response?.data?.message || '닉네임 변경에 실패했습니다.';
       Alert.alert('오류', message);
       return false;
     }
@@ -148,7 +160,8 @@ export const CharacterProvider: React.FC<CharacterProviderProps> = ({ children }
     activeCharacter,
     loading,
     refreshCharacters,
-    updateUserCharacterStatus,
+    manageCharacterActivation,
+    updateCharacterNickname,
     purchaseCharacter,
     feedCharacter,
     playWithCharacter,

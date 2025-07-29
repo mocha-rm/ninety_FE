@@ -18,11 +18,13 @@ export interface RoomItemRequest {
 }
 
 export interface PlacedItem {
-  placedItemId: number;
-  roomItemId: number;
-  x: number;
-  y: number;
+  id: number;
+  itemName: string;
+  category: ItemCategory;
+  posX: number;
+  posY: number;
   rotation: number;
+  imageUrl: string; // 백엔드에서 직접 제공
 }
 
 export interface UserRoom {
@@ -31,9 +33,8 @@ export interface UserRoom {
 }
 
 export interface PlaceItemRequest {
-  roomItemId?: number; // Required for place, optional for move
-  x: number;
-  y: number;
+  posX: number;
+  posY: number;
   rotation: number;
 }
 
@@ -64,7 +65,7 @@ export interface UserItem {
   itemDescription: string;
   category: ItemCategory;
   imageUrl: string;
-  isPlaced: boolean;
+  placed: boolean;
   createdAt: string;
 }
 

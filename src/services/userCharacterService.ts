@@ -1,6 +1,6 @@
 import api from './api';
 import { ApiResponse } from '../types/auth';
-import { UserCharacter, UserCharacterUpdateRequest } from '../types/character';
+import { UserCharacter, UserCharacterActivationRequest, UserCharacterNicknameUpdateRequest } from '../types/character';
 
 class UserCharacterService {
   async purchaseCharacter(characterId: number): Promise<void> {
@@ -34,8 +34,14 @@ class UserCharacterService {
     return response.data.data;
   }
 
-  async updateUserCharacter(userCharacterId: number, data: UserCharacterUpdateRequest): Promise<void> {
-    await api.patch<ApiResponse<void>>(`/game/user-characters/${userCharacterId}`, data);
+  async manageCharacterActivation(userCharacterId: number, data: UserCharacterActivationRequest): Promise<UserCharacter> {
+    const response = await api.patch<ApiResponse<UserCharacter>>(`/game/user-characters/${userCharacterId}/activation`, data);
+    return response.data.data;
+  }
+
+  async updateCharacterNickname(userCharacterId: number, data: UserCharacterNicknameUpdateRequest): Promise<UserCharacter> {
+    const response = await api.patch<ApiResponse<UserCharacter>>(`/game/user-characters/${userCharacterId}`, data);
+    return response.data.data;
   }
 
   async feedCharacter(userCharacterId: number): Promise<void> {

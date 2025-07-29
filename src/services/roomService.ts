@@ -8,8 +8,8 @@ class RoomService {
     return response.data.data;
   }
 
-  async placeItem(roomId: number, data: PlaceItemRequest): Promise<void> {
-    await api.post<ApiResponse<void>>(`/game/user-room/${roomId}/placed-items`, data);
+  async placeItem(roomId: number, userItemId: number, data: PlaceItemRequest): Promise<void> {
+    await api.post<ApiResponse<void>>(`/game/user-room/${roomId}/placed-items/${userItemId}`, data);
   }
 
   async moveItem(roomId: number, placedItemId: number, data: PlaceItemRequest): Promise<void> {
