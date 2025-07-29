@@ -7,8 +7,6 @@ interface GameContextType {
   userGameData: UserGameData | null;
   loading: boolean;
   refreshGameData: () => Promise<void>;
-  earnCoins: (amount: number) => Promise<void>;
-  earnExperience: (amount: number) => Promise<void>;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -62,43 +60,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     await loadGameData();
   };
 
-  const earnCoins = async (amount: number) => {
-    if (!userGameData) return;
-
-    try {
-      const updatedData = await gameService.updateUserGameData({
-        coins: userGameData.coins + amount
-      });
-      setUserGameData(updatedData);
-    } catch (error) {
-      console.error('코인 획득 실패:', error);
-    }
-  };
-
-  const earnExperience = async (amount: number) => {
-    if (!userGameData) return;
-
-    try {
-      const newExperience = userGameData.experience + amount;
-      const updatedData = await gameService.updateUserGameData({
-        experience: newExperience
-      });
-      setUserGameData(updatedData);
-
-      // 레벨업 체크
-      const levelUpResult = await gameService.checkAndProcessLevelUp();
-      if (levelUpResult.leveledUp) {
-        setUserGameData(prev => prev ? {
-          ...prev,
-          level: levelUpResult.newLevel || prev.level,
-          experience: levelUpResult.newExperience || prev.experience
-        } : null);
-      }
-    } catch (error) {
-      console.error('경험치 획득 실패:', error);
-    }
-  };
-
   useEffect(() => {
     loadGameData();
   }, [user]);
@@ -107,8 +68,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     userGameData,
     loading,
     refreshGameData,
-    earnCoins,
-    earnExperience,
   };
 
   return (
@@ -116,4 +75,4 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       {children}
     </GameContext.Provider>
   );
-}; 
+};

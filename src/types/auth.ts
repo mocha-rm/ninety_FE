@@ -16,16 +16,6 @@ export interface GoogleOAuth2Request {
   accessToken: string;
 }
 
-export interface UserResponse {
-  id: number;
-  email: string;
-  name: string;
-  nickName: string;
-  phoneNumber: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface UserJwtResponse {
   id: number;
   email: string;

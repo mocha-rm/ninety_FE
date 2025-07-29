@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,184 +8,89 @@ import {
   Alert,
   Modal,
   TextInput,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
-import { useCharacter } from '../contexts/CharacterContext';
 import { useGame } from '../contexts/GameContext';
+import { useCharacter } from '../contexts/CharacterContext'; // CharacterContext import
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
-import { UserCharacter } from '../types/character';
+import { Character, UserCharacter, CharacterRarity } from '../types/character';
 import characterService from '../services/characterService';
+import userCharacterService from '../services/userCharacterService';
+import { useFocusEffect } from '@react-navigation/native';
 
 const CharacterScreen: React.FC = () => {
+  const { userGameData, refreshGameData } = useGame();
   const { 
-    characterShop, 
     userCharacters, 
     activeCharacter, 
-    loading,
-    purchaseCharacter,
-    adoptCharacter,
-    feedCharacter,
-    playWithCharacter,
-    setActiveCharacter
-  } = useCharacter();
-  const { userGameData } = useGame();
-  const [adoptModalVisible, setAdoptModalVisible] = useState(false);
-  const [selectedCharacterId, setSelectedCharacterId] = useState<number | null>(null);
-  const [nickname, setNickname] = useState('');
-  const [purchasingCharacters, setPurchasingCharacters] = useState<Set<number>>(new Set());
+    loading, 
+    refreshCharacters, 
+    updateUserCharacterStatus, 
+    feedCharacter, 
+    playWithCharacter 
+  } = useCharacter(); // CharacterContext 사용
 
-  const handlePurchaseCharacter = async (characterId: number) => {
-    if (!userGameData) {
-      Alert.alert('오류', '게임 데이터를 불러올 수 없습니다.');
-      return;
-    }
+  const [nicknameModalVisible, setNicknameModalVisible] = useState(false);
+  const [selectedUserCharacter, setSelectedUserCharacter] = useState<UserCharacter | null>(null);
+  const [newNickname, setNewNickname] = useState('');
 
-    const character = characterShop.find(c => c.id === characterId);
-    if (!character) return;
-
-    if (character.isOwned) {
-      Alert.alert('알림', '이미 소유한 캐릭터입니다.');
-      return;
-    }
-
-    if (userGameData.coins < character.price) {
-      Alert.alert('코인 부족', '코인이 부족합니다. 습관을 완료해서 코인을 모아보세요!');
-      return;
-    }
-
-    Alert.alert(
-      '캐릭터 구매',
-      `${character.name}을(를) ${character.price}코인에 구매하시겠습니까?`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '구매',
-          onPress: async () => {
-            try {
-              setPurchasingCharacters(prev => new Set(prev).add(characterId));
-              const success = await purchaseCharacter(characterId);
-              
-              if (success) {
-                Alert.alert('구매 완료', `${character.name}을(를) 구매했습니다!`);
-                setAdoptModalVisible(true);
-                setSelectedCharacterId(characterId);
-              } else {
-                Alert.alert('구매 실패', '캐릭터 구매에 실패했습니다.');
-              }
-            } catch (error) {
-              Alert.alert('오류', '구매 중 오류가 발생했습니다.');
-            } finally {
-              setPurchasingCharacters(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(characterId);
-                return newSet;
-              });
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleAdoptCharacter = async () => {
-    if (!selectedCharacterId) return;
-
-    try {
-      const success = await adoptCharacter(selectedCharacterId, nickname.trim() || undefined);
-      
-      if (success) {
-        Alert.alert('입양 완료', '캐릭터를 입양했습니다!');
-        setAdoptModalVisible(false);
-        setSelectedCharacterId(null);
-        setNickname('');
-      } else {
-        Alert.alert('입양 실패', '캐릭터 입양에 실패했습니다.');
-      }
-    } catch (error) {
-      Alert.alert('오류', '입양 중 오류가 발생했습니다.');
+  // 헬퍼 함수들
+  const getRarityColor = (rarity: CharacterRarity) => {
+    switch (rarity) {
+      case CharacterRarity.COMMON: return '#A8A8A8';
+      case CharacterRarity.RARE: return '#64B5F6';
+      case CharacterRarity.EPIC: return '#9C27B0';
+      case CharacterRarity.LEGENDARY: return '#FFD700';
+      default: return '#000000';
     }
   };
 
-  const handleFeedCharacter = async (character: UserCharacter) => {
-    Alert.alert(
-      '먹이 주기',
-      '어떤 먹이를 주시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '기본 먹이 (무료)',
-          onPress: async () => {
-            const success = await feedCharacter(character.id, 'basic');
-            if (success) {
-              Alert.alert('성공', '캐릭터가 행복해졌습니다!');
-            }
-          },
-        },
-        {
-          text: '프리미엄 먹이 (10코인)',
-          onPress: async () => {
-            if (userGameData && userGameData.coins < 10) {
-              Alert.alert('코인 부족', '코인이 부족합니다.');
-              return;
-            }
-            const success = await feedCharacter(character.id, 'premium');
-            if (success) {
-              Alert.alert('성공', '캐릭터가 매우 행복해졌습니다!');
-            }
-          },
-        },
-      ]
-    );
+  const getRarityLabel = (rarity: CharacterRarity) => {
+    switch (rarity) {
+      case CharacterRarity.COMMON: return '일반';
+      case CharacterRarity.RARE: return '희귀';
+      case CharacterRarity.EPIC: return '영웅';
+      case CharacterRarity.LEGENDARY: return '전설';
+      default: return '알 수 없음';
+    }
   };
 
-  const handlePlayWithCharacter = async (character: UserCharacter) => {
-    Alert.alert(
-      '놀아주기',
-      '어떤 활동을 하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '쓰다듬기',
-          onPress: async () => {
-            const success = await playWithCharacter(character.id, 'pet');
-            if (success) {
-              Alert.alert('성공', '캐릭터가 좋아합니다!');
-            }
-          },
-        },
-        {
-          text: '놀아주기',
-          onPress: async () => {
-            const success = await playWithCharacter(character.id, 'play');
-            if (success) {
-              Alert.alert('성공', '캐릭터와 즐거운 시간을 보냈습니다!');
-            }
-          },
-        },
-        {
-          text: '산책하기',
-          onPress: async () => {
-            const success = await playWithCharacter(character.id, 'walk');
-            if (success) {
-              Alert.alert('성공', '캐릭터와 산책을 즐겼습니다!');
-            }
-          },
-        },
-      ]
-    );
+  const getHappinessStatus = (happiness: number) => {
+    if (happiness >= 80) return { label: '매우 행복', color: '#4CAF50' };
+    if (happiness >= 50) return { label: '행복', color: '#FFC107' };
+    if (happiness >= 20) return { label: '보통', color: '#FF9800' };
+    return { label: '불행', color: '#F44336' };
   };
 
-  const handleSetActiveCharacter = async (character: UserCharacter) => {
-    if (character.isActive) return;
+  const handleFeedCharacter = async (userCharacter: UserCharacter) => {
+    const success = await feedCharacter(userCharacter.id);
+    if (success) {
+      Alert.alert('성공', `${userCharacter.nickname || userCharacter.character.name}에게 먹이를 주었습니다!`);
+      refreshGameData(); // 음식 아이템 감소 반영
+    }
+  };
+
+  const handlePlayWithCharacter = async (userCharacter: UserCharacter) => {
+    const success = await playWithCharacter(userCharacter.id);
+    if (success) {
+      Alert.alert('성공', `${userCharacter.nickname || userCharacter.character.name}와(과) 즐겁게 놀았습니다!`);
+      refreshGameData(); // 장난감 아이템 감소 반영
+    }
+  };
+
+  const handleSetActiveCharacter = async (userCharacter: UserCharacter) => {
+    if (userCharacter.isActive) return;
 
     Alert.alert(
       '활성 캐릭터 설정',
-      `${character.nickname || character.character.name}을(를) 활성 캐릭터로 설정하시겠습니까?`,
+      `${userCharacter.nickname || userCharacter.character.name}을(를) 활성 캐릭터로 설정하시겠습니까?`,
       [
         { text: '취소', style: 'cancel' },
         {
           text: '설정',
           onPress: async () => {
-            const success = await setActiveCharacter(character.id);
+            const success = await updateUserCharacterStatus(userCharacter.id, true);
             if (success) {
               Alert.alert('성공', '활성 캐릭터가 변경되었습니다!');
             }
@@ -195,41 +100,54 @@ const CharacterScreen: React.FC = () => {
     );
   };
 
-  const getRarityColor = (rarity: string) => {
-    return characterService.getRarityColor(rarity);
+  const handleOpenNicknameModal = (userCharacter: UserCharacter) => {
+    setSelectedUserCharacter(userCharacter);
+    setNewNickname(userCharacter.nickname || userCharacter.character.name);
+    setNicknameModalVisible(true);
   };
 
-  const getRarityLabel = (rarity: string) => {
-    return characterService.getRarityLabel(rarity);
+  const handleUpdateNickname = async () => {
+    if (!selectedUserCharacter) return;
+
+    const success = await updateUserCharacterStatus(selectedUserCharacter.id, selectedUserCharacter.isActive, newNickname.trim());
+    if (success) {
+      Alert.alert('성공', '닉네임이 변경되었습니다!');
+      setNicknameModalVisible(false);
+    }
   };
 
-  const getHappinessStatus = (happiness: number) => {
-    return characterService.getHappinessStatus(happiness);
-  };
+  const renderUserCharacterCard = (userCharacter: UserCharacter) => {
+    // character가 없을 경우를 대비한 방어 코드
+    if (!userCharacter.character) {
+      return (
+        <View key={userCharacter.id} style={styles.characterCard}>
+          <ActivityIndicator />
+        </View>
+      );
+    }
 
-  const renderCharacterCard = (character: UserCharacter) => {
-    const happinessStatus = getHappinessStatus(character.happiness);
-    const rarityColor = getRarityColor(character.character.rarity);
-    const rarityLabel = getRarityLabel(character.character.rarity);
+    const happinessStatus = getHappinessStatus(userCharacter.happiness);
+    const rarityColor = getRarityColor(userCharacter.character.rarity);
+    const rarityLabel = getRarityLabel(userCharacter.character.rarity);
 
     return (
-      <View key={character.id} style={styles.characterCard}>
+      <View key={userCharacter.id} style={styles.characterCard}>
         <View style={styles.characterHeader}>
-          <Text style={styles.characterEmoji}>🐾</Text>
+          <Image source={{ uri: userCharacter.character.imageUrl || 'https://via.placeholder.com/60' }} style={styles.characterImage} />
           <View style={styles.characterInfo}>
             <Text style={styles.characterName}>
-              {character.nickname || character.character.name}
+              {userCharacter.nickname || userCharacter.character.name}
             </Text>
             <Text style={styles.characterOriginalName}>
-              {character.character.name}
+              {userCharacter.character.name}
             </Text>
             <View style={[styles.rarityBadge, { backgroundColor: rarityColor }]}>
               <Text style={styles.rarityText}>{rarityLabel}</Text>
             </View>
           </View>
-          {character.isActive && (
+          {userCharacter.isActive && (
             <View style={styles.activeBadge}>
-              <Text style={styles.activeText}>활성</Text>
+              <Text style={styles.activeText}>장착중</Text>
             </View>
           )}
         </View>
@@ -237,40 +155,46 @@ const CharacterScreen: React.FC = () => {
         <View style={styles.characterStats}>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>레벨</Text>
-            <Text style={styles.statValue}>{character.level}</Text>
+            <Text style={styles.statValue}>{userCharacter.level}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>경험치</Text>
-            <Text style={styles.statValue}>{character.experience}</Text>
+            <Text style={styles.statValue}>{userCharacter.experience}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>행복도</Text>
             <Text style={[styles.statValue, { color: happinessStatus.color }]}>
-              {character.happiness}%
+              {userCharacter.happiness}%
             </Text>
           </View>
         </View>
 
         <View style={styles.characterActions}>
-          {!character.isActive && (
+          {!userCharacter.isActive && (
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => handleSetActiveCharacter(character)}
+              onPress={() => handleSetActiveCharacter(userCharacter)}
             >
-              <Text style={styles.actionButtonText}>활성화</Text>
+              <Text style={styles.actionButtonText}>장착하기</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handleFeedCharacter(character)}
+            onPress={() => handleFeedCharacter(userCharacter)}
           >
             <Text style={styles.actionButtonText}>먹이주기</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handlePlayWithCharacter(character)}
+            onPress={() => handlePlayWithCharacter(userCharacter)}
           >
             <Text style={styles.actionButtonText}>놀아주기</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleOpenNicknameModal(userCharacter)}
+          >
+            <Text style={styles.actionButtonText}>닉네임 변경</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -281,6 +205,7 @@ const CharacterScreen: React.FC = () => {
     return (
       <SafeAreaWrapper>
         <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#6366F1" />
           <Text style={styles.loadingText}>캐릭터를 불러오는 중...</Text>
         </View>
       </SafeAreaWrapper>
@@ -290,7 +215,7 @@ const CharacterScreen: React.FC = () => {
   return (
     <SafeAreaWrapper>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🐾 내 캐릭터</Text>
+        <Image source={{ uri: activeCharacter?.character?.imageUrl || 'https://via.placeholder.com/60' }} style={styles.characterImage} />
         {userGameData && (
           <View style={styles.coinDisplay}>
             <Text style={styles.coinText}>💰 {userGameData.coins} 코인</Text>
@@ -302,7 +227,7 @@ const CharacterScreen: React.FC = () => {
       {activeCharacter && (
         <View style={styles.activeCharacterSection}>
           <Text style={styles.sectionTitle}>현재 파트너</Text>
-          {renderCharacterCard(activeCharacter)}
+          {renderUserCharacterCard(activeCharacter)}
         </View>
       )}
 
@@ -318,77 +243,44 @@ const CharacterScreen: React.FC = () => {
           ) : (
             userCharacters
               .filter(char => !char.isActive)
-              .map(renderCharacterCard)
+              .map(renderUserCharacterCard)
           )}
         </ScrollView>
       </View>
 
-      {/* 캐릭터 상점 */}
-      <View style={styles.shopSection}>
-        <Text style={styles.sectionTitle}>캐릭터 상점</Text>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.shopList}
-        >
-          {characterShop
-            .filter(char => !char.isOwned)
-            .map(character => (
-              <TouchableOpacity
-                key={character.id}
-                style={styles.shopItem}
-                onPress={() => handlePurchaseCharacter(character.id)}
-                disabled={purchasingCharacters.has(character.id)}
-              >
-                <Text style={styles.characterEmoji}>🐾</Text>
-                <Text style={styles.shopItemName}>{character.name}</Text>
-                <View style={[
-                  styles.rarityBadge, 
-                  { backgroundColor: getRarityColor(character.rarity) }
-                ]}>
-                  <Text style={styles.rarityText}>{getRarityLabel(character.rarity)}</Text>
-                </View>
-                <Text style={styles.shopItemPrice}>💰 {character.price}</Text>
-                <Text style={styles.shopItemDescription}>{character.description}</Text>
-                <Text style={styles.purchaseText}>
-                  {purchasingCharacters.has(character.id) ? '구매 중...' : '구매하기'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-        </ScrollView>
-      </View>
+      {/* 캐릭터 상점 섹션 제거 */}
 
-      {/* 입양 모달 */}
+      {/* 닉네임 변경 모달 */}
       <Modal
-        visible={adoptModalVisible}
+        visible={nicknameModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setAdoptModalVisible(false)}
+        onRequestClose={() => setNicknameModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>캐릭터 입양</Text>
-            <Text style={styles.modalSubtitle}>캐릭터의 이름을 지어주세요 (선택사항)</Text>
+            <Text style={styles.modalTitle}>닉네임 변경</Text>
+            <Text style={styles.modalSubtitle}>캐릭터의 새로운 닉네임을 입력해주세요.</Text>
             <TextInput
               style={styles.nicknameInput}
-              placeholder="캐릭터 이름"
-              value={nickname}
-              onChangeText={setNickname}
+              placeholder="새 닉네임"
+              value={newNickname}
+              onChangeText={setNewNickname}
               maxLength={10}
             />
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalButton}
-                onPress={() => setAdoptModalVisible(false)}
+                onPress={() => setNicknameModalVisible(false)}
               >
                 <Text style={styles.modalButtonText}>취소</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonPrimary]}
-                onPress={handleAdoptCharacter}
+                onPress={handleUpdateNickname}
               >
                 <Text style={[styles.modalButtonText, styles.modalButtonTextPrimary]}>
-                  입양하기
+                  변경하기
                 </Text>
               </TouchableOpacity>
             </View>
@@ -463,9 +355,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  characterEmoji: {
-    fontSize: 32,
+  characterImage: {
+    width: 60,
+    height: 60,
     marginRight: 12,
+    borderRadius: 8,
+    resizeMode: 'contain',
   },
   characterInfo: {
     flex: 1,
@@ -524,12 +419,14 @@ const styles = StyleSheet.create({
   characterActions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    flexWrap: 'wrap',
   },
   actionButton: {
     backgroundColor: '#6366F1',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
+    margin: 4,
   },
   actionButtonText: {
     color: 'white',
@@ -657,6 +554,13 @@ const styles = StyleSheet.create({
   modalButtonTextPrimary: {
     color: 'white',
   },
+  emptyShopState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 20,
+  },
 });
 
-export default CharacterScreen; 
+export default CharacterScreen;

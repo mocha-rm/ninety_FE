@@ -2,60 +2,39 @@ export interface RoomItem {
   id: number;
   name: string;
   description: string;
-  category: 'furniture' | 'decoration' | 'wallpaper' | 'floor';
+  category: ItemCategory;
   price: number;
-  imageUrl?: string;
-  position?: {
-    x: number;
-    y: number;
-  };
-  size?: {
-    width: number;
-    height: number;
-  };
-  isOwned: boolean;
-  isPlaced: boolean;
-  createdAt: string;
-}
-
-export interface UserRoom {
-  id: number;
-  userId: number;
-  wallpaperId?: number;
-  floorId?: number;
-  items: PlacedRoomItem[];
+  imageUrl: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface PlacedRoomItem {
-  id: number;
-  itemId: number;
-  userId: number;
-  position: {
-    x: number;
-    y: number;
-  };
-  rotation: number;
-  createdAt: string;
-  item: RoomItem;
+export interface RoomItemRequest {
+  name: string;
+  description: string;
+  category: ItemCategory;
+  price: number;
+  imageUrl: string;
 }
 
-export interface CreatePlacedItemRequest {
-  itemId: number;
-  position: {
-    x: number;
-    y: number;
-  };
+export interface PlacedItem {
+  placedItemId: number;
+  roomItemId: number;
+  x: number;
+  y: number;
   rotation: number;
 }
 
-export interface UpdatePlacedItemRequest {
-  position?: {
-    x: number;
-    y: number;
-  };
-  rotation?: number;
+export interface UserRoom {
+  userRoomId: number;
+  items: PlacedItem[];
+}
+
+export interface PlaceItemRequest {
+  roomItemId?: number; // Required for place, optional for move
+  x: number;
+  y: number;
+  rotation: number;
 }
 
 export interface ShopItem {
@@ -67,4 +46,28 @@ export interface ShopItem {
   imageUrl?: string;
   isOwned: boolean;
   isAvailable: boolean;
-} 
+}
+
+export enum ItemCategory {
+  FURNITURE = 'FURNITURE',
+  PLAYGROUND = 'PLAYGROUND',
+  DECORATION = 'DECORATION',
+  BACKGROUND = 'BACKGROUND',
+  PROP = 'PROP',
+}
+
+export interface UserItem {
+  id: number;
+  userId: number;
+  itemId: number;
+  itemName: string;
+  itemDescription: string;
+  category: ItemCategory;
+  imageUrl: string;
+  isPlaced: boolean;
+  createdAt: string;
+}
+
+export interface UserItemRequest {
+  itemId: number;
+}

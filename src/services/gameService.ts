@@ -2,33 +2,25 @@ import api from './api';
 import { ApiResponse } from '../types/auth';
 import { 
   UserGameData, 
-  GameReward, 
-  CreateGameRewardRequest, 
-  UpdateUserGameDataRequest 
+  GameReward 
 } from '../types/game';
 
 class GameService {
   // 사용자 게임 데이터 조회
   async getUserGameData(): Promise<UserGameData> {
-    const response = await api.get<ApiResponse<UserGameData>>('/api/game/user-data');
+    const response = await api.get<ApiResponse<UserGameData>>('/game/user-data');
     return response.data.data;
   }
 
   // 사용자 게임 데이터 생성 (최초 로그인시)
   async createUserGameData(): Promise<UserGameData> {
-    const response = await api.post<ApiResponse<UserGameData>>('/api/game/user-data');
-    return response.data.data;
-  }
-
-  // 사용자 게임 데이터 업데이트
-  async updateUserGameData(data: UpdateUserGameDataRequest): Promise<UserGameData> {
-    const response = await api.patch<ApiResponse<UserGameData>>('/api/game/user-data', data);
+    const response = await api.post<ApiResponse<UserGameData>>('/game/user-data');
     return response.data.data;
   }
 
   // 습관 완료시 보상 지급
   async giveHabitCompletionReward(habitId: number): Promise<GameReward> {
-    const response = await api.post<ApiResponse<GameReward>>(`/api/game/rewards/habit-completion/${habitId}`);
+    const response = await api.post<ApiResponse<GameReward>>(`/habits/${habitId}/complete`);
     return response.data.data;
   }
 
@@ -50,21 +42,7 @@ class GameService {
       number: number;
       first: boolean;
       last: boolean;
-    }>>(`/api/game/rewards?page=${page}&size=${size}`);
-    return response.data.data;
-  }
-
-  // 레벨업 체크 및 처리
-  async checkAndProcessLevelUp(): Promise<{
-    leveledUp: boolean;
-    newLevel?: number;
-    newExperience?: number;
-  }> {
-    const response = await api.post<ApiResponse<{
-      leveledUp: boolean;
-      newLevel?: number;
-      newExperience?: number;
-    }>>('/api/game/level-up');
+    }>>(`/game/rewards?page=${page}&size=${size}`);
     return response.data.data;
   }
 

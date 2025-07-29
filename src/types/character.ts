@@ -1,12 +1,17 @@
+export enum CharacterRarity {
+  COMMON = 'COMMON',
+  RARE = 'RARE',
+  EPIC = 'EPIC',
+  LEGENDARY = 'LEGENDARY',
+}
+
 export interface Character {
   id: number;
   name: string;
   description: string;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  rarity: CharacterRarity;
   price: number;
-  imageUrl?: string;
-  isOwned: boolean;
-  isActive: boolean;
+  imageUrl: string;
   createdAt: string;
 }
 
@@ -21,32 +26,10 @@ export interface UserCharacter {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  character: Character;
+  character: Character; // 백엔드 DTO와 다르게 Character 객체를 포함
 }
 
-export interface CharacterStats {
-  id: number;
-  characterId: number;
-  level: number;
-  maxHappiness: number;
-  happinessDecayRate: number;
-  experienceGainRate: number;
-}
-
-export interface CreateUserCharacterRequest {
-  characterId: number;
-  nickname?: string;
-}
-
-export interface UpdateUserCharacterRequest {
+export interface UserCharacterUpdateRequest {
   nickname?: string;
   isActive?: boolean;
 }
-
-export interface FeedCharacterRequest {
-  foodType: 'basic' | 'premium' | 'special';
-}
-
-export interface PlayWithCharacterRequest {
-  activityType: 'pet' | 'play' | 'walk';
-} 

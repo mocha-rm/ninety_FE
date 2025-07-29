@@ -14,11 +14,12 @@ import CustomButton from '../components/CustomButton';
 import CustomInput from '../components/CustomInput';
 import Logo from '../components/Logo';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
-import userService, { UserProfileResponse, UpdateNicknameRequest, UpdatePasswordRequest } from '../services/userService';
+import userService from '../services/userService';
+import { User, UserNicknameUpdate, UserPasswordUpdate } from '../types/user';
 
 const ProfileScreen: React.FC = () => {
   const { user, logout } = useAuth();
-  const [profile, setProfile] = useState<UserProfileResponse | null>(null);
+  const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [nicknameModalVisible, setNicknameModalVisible] = useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
@@ -131,7 +132,7 @@ const ProfileScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await userService.deleteAccount();
+              // await userService.deleteAccount(); // 백엔드에 없는 기능이므로 주석 처리
               await logout();
             } catch (error) {
               console.error('계정 삭제 오류:', error);

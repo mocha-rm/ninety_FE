@@ -4,8 +4,16 @@ export interface UserGameData {
   coins: number;
   level: number;
   experience: number;
+  food: number;
+  toy: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export enum RewardType {
+  HABIT_COMPLETION = 'HABIT_COMPLETION',
+  STREAK_BONUS = 'STREAK_BONUS',
+  DAILY_LOGIN = 'DAILY_LOGIN',
 }
 
 export interface GameReward {
@@ -14,19 +22,8 @@ export interface GameReward {
   userId: number;
   coinsEarned: number;
   experienceEarned: number;
-  reason: 'habit_completion' | 'streak_bonus' | 'daily_login';
+  foodEarned: number;
+  toyEarned: number;
+  rewardType: RewardType;
   createdAt: string;
 }
-
-export interface CreateGameRewardRequest {
-  habitId: number;
-  coinsEarned: number;
-  experienceEarned: number;
-  reason: 'habit_completion' | 'streak_bonus' | 'daily_login';
-}
-
-export interface UpdateUserGameDataRequest {
-  coins?: number;
-  level?: number;
-  experience?: number;
-} 

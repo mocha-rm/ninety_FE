@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,29 +6,77 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
-import { useRoom } from '../contexts/RoomContext';
 import { useGame } from '../contexts/GameContext';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
-import { ShopItem } from '../types/room';
+import { RoomItem, ItemCategory } from '../types/room';
+import { Character } from '../types/character';
+import roomItemService from '../services/roomItemService';
+import characterService from '../services/characterService';
+import userItemService from '../services/userItemService';
+import userCharacterService from '../services/userCharacterService';
+import { useFocusEffect } from '@react-navigation/native';
+
+type ShopItem = (RoomItem & { isOwned: boolean }) | (Character & { isOwned: boolean });
 
 const ShopScreen: React.FC = () => {
-  const { shopItems, purchaseItem } = useRoom();
-  const { userGameData } = useGame();
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const { userGameData, refreshGameData } = useGame();
+  const [selectedShopType, setSelectedShopType] = useState<'room' | 'character'>('room');
+  const [roomItems, setRoomItems] = useState<ShopItem[]>([]);
+  const [characters, setCharacters] = useState<ShopItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<ItemCategory | 'all'>('all');
   const [purchasingItems, setPurchasingItems] = useState<Set<number>>(new Set());
 
-  const categories = [
+  const roomCategories = [
     { id: 'all', label: '전체', emoji: '🏪' },
-    { id: 'furniture', label: '가구', emoji: '🪑' },
-    { id: 'decoration', label: '장식품', emoji: '🖼️' },
-    { id: 'wallpaper', label: '벽지', emoji: '🎨' },
-    { id: 'floor', label: '바닥', emoji: '🏠' },
+    { id: ItemCategory.FURNITURE, label: '가구', emoji: '🪑' },
+    { id: ItemCategory.PLAYGROUND, label: '놀이터', emoji: '🎠' },
+    { id: ItemCategory.DECORATION, label: '장식품', emoji: '🖼️' },
+    { id: ItemCategory.BACKGROUND, label: '배경', emoji: '🏞️' },
+    { id: ItemCategory.PROP, label: '소품', emoji: '🧸' },
   ];
 
-  const filteredItems = selectedCategory === 'all' 
-    ? shopItems 
-    : shopItems.filter(item => item.category === selectedCategory);
+  const loadShopItems = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Fetch owned items/characters first
+      const ownedRoomItemsResponse = await userItemService.getUserItems();
+      const ownedRoomItemIds = new Set(ownedRoomItemsResponse.content.map(item => item.itemId));
+
+      const ownedUserCharactersResponse = await userCharacterService.getUserCharacters();
+      const ownedCharacterIds = new Set(ownedUserCharactersResponse.content.map(char => char.characterId));
+
+      if (selectedShopType === 'room') {
+        const response = await roomItemService.getRoomItems(selectedCategory === 'all' ? undefined : selectedCategory);
+        const itemsWithOwnedStatus = response.content.map(item => ({
+          ...item,
+          isOwned: ownedRoomItemIds.has(item.id),
+        }));
+        setRoomItems(itemsWithOwnedStatus);
+      } else {
+        const response = await characterService.getCharacters();
+        const charactersWithOwnedStatus = response.content.map(char => ({
+          ...char,
+          isOwned: ownedCharacterIds.has(char.id),
+        }));
+        setCharacters(charactersWithOwnedStatus);
+      }
+    } catch (error) {
+      console.error('상점 아이템 로드 실패:', error);
+      Alert.alert('오류', '상점 아이템을 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedShopType, selectedCategory]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadShopItems();
+    }, [loadShopItems])
+  );
 
   const handlePurchase = async (item: ShopItem) => {
     if (!userGameData) {
@@ -56,15 +104,18 @@ const ShopScreen: React.FC = () => {
           onPress: async () => {
             try {
               setPurchasingItems(prev => new Set(prev).add(item.id));
-              const success = await purchaseItem(item.id);
-              
-              if (success) {
-                Alert.alert('구매 완료', `${item.name}을(를) 구매했습니다!`);
+              if (selectedShopType === 'room') {
+                await userItemService.buyItem({ itemId: item.id });
               } else {
-                Alert.alert('구매 실패', '아이템 구매에 실패했습니다.');
+                await userCharacterService.purchaseCharacter(item.id);
               }
-            } catch (error) {
-              Alert.alert('오류', '구매 중 오류가 발생했습니다.');
+              Alert.alert('구매 완료', `${item.name}을(를) 구매했습니다!`);
+              refreshGameData(); // 게임 데이터 (코인) 새로고침
+              loadShopItems(); // 상점 아이템 목록 새로고침 (소유 여부 반영)
+            } catch (error: any) {
+              console.error('구매 실패:', error);
+              const message = error.response?.data?.message || '아이템 구매에 실패했습니다.';
+              Alert.alert('오류', message);
             } finally {
               setPurchasingItems(prev => {
                 const newSet = new Set(prev);
@@ -78,22 +129,24 @@ const ShopScreen: React.FC = () => {
     );
   };
 
-  const getItemEmoji = (category: string) => {
-    const emojiMap: { [key: string]: string } = {
-      furniture: '🪑',
-      decoration: '🖼️',
-      wallpaper: '🎨',
-      floor: '🏠',
+  const getItemEmoji = (category: ItemCategory) => {
+    const emojiMap: { [key in ItemCategory]: string } = {
+      [ItemCategory.FURNITURE]: '🪑',
+      [ItemCategory.PLAYGROUND]: '🎠',
+      [ItemCategory.DECORATION]: '🖼️',
+      [ItemCategory.BACKGROUND]: '🏞️',
+      [ItemCategory.PROP]: '🧸',
     };
     return emojiMap[category] || '📦';
   };
 
-  const getCategoryLabel = (category: string) => {
-    const labelMap: { [key: string]: string } = {
-      furniture: '가구',
-      decoration: '장식품',
-      wallpaper: '벽지',
-      floor: '바닥',
+  const getCategoryLabel = (category: ItemCategory) => {
+    const labelMap: { [key in ItemCategory]: string } = {
+      [ItemCategory.FURNITURE]: '가구',
+      [ItemCategory.PLAYGROUND]: '놀이터',
+      [ItemCategory.DECORATION]: '장식품',
+      [ItemCategory.BACKGROUND]: '배경',
+      [ItemCategory.PROP]: '소품',
     };
     return labelMap[category] || category;
   };
@@ -109,76 +162,127 @@ const ShopScreen: React.FC = () => {
         )}
       </View>
 
-      {/* 카테고리 필터 */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoryContainer}
-      >
-        {categories.map(category => (
-          <TouchableOpacity
-            key={category.id}
-            style={[
-              styles.categoryButton,
-              selectedCategory === category.id && styles.selectedCategoryButton,
-            ]}
-            onPress={() => setSelectedCategory(category.id)}
-          >
-            <Text style={styles.categoryEmoji}>{category.emoji}</Text>
-            <Text style={[
-              styles.categoryLabel,
-              selectedCategory === category.id && styles.selectedCategoryLabel,
-            ]}>
-              {category.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* 상점 타입 선택 (방 아이템 / 캐릭터) */}
+      <View style={styles.shopTypeContainer}>
+        <TouchableOpacity
+          style={[
+            styles.shopTypeButton,
+            selectedShopType === 'room' && styles.selectedShopTypeButton,
+          ]}
+          onPress={() => {
+            setSelectedShopType('room');
+            setSelectedCategory('all'); // 카테고리 초기화
+          }}
+        >
+          <Text style={[
+            styles.shopTypeButtonText,
+            selectedShopType === 'room' && styles.shopTypeButtonText,
+          ]}>방 아이템</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.shopTypeButton,
+            selectedShopType === 'character' && styles.selectedShopTypeButton,
+          ]}
+          onPress={() => setSelectedShopType('character')}
+        >
+          <Text style={[
+            styles.shopTypeButtonText,
+            selectedShopType === 'character' && styles.shopTypeButtonText,
+          ]}>캐릭터</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 카테고리 필터 (방 아이템일 경우에만 표시) */}
+      {selectedShopType === 'room' && (
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroll}
+          contentContainerStyle={styles.categoryContainer}
+        >
+          {roomCategories.map(category => (
+            <TouchableOpacity
+              key={category.id}
+              style={[
+                styles.categoryButton,
+                selectedCategory === category.id && styles.selectedCategoryButton,
+              ]}
+              onPress={() => setSelectedCategory(category.id as ItemCategory | 'all')}
+            >
+              <Text style={styles.categoryEmoji}>{category.emoji}</Text>
+              <Text style={[
+                styles.categoryLabel,
+                selectedCategory === category.id && styles.selectedCategoryLabel,
+              ]}>
+                {category.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
       {/* 아이템 목록 */}
       <ScrollView style={styles.itemsContainer} showsVerticalScrollIndicator={false}>
-        {filteredItems.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>이 카테고리에 아이템이 없습니다.</Text>
+        {loading ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator size="large" color="#6366F1" />
+            <Text style={styles.loadingStateText}>아이템 불러오는 중...</Text>
           </View>
         ) : (
-          filteredItems.map(item => (
-            <View key={item.id} style={styles.itemCard}>
-              <View style={styles.itemLeft}>
-                <Text style={styles.itemEmoji}>{getItemEmoji(item.category)}</Text>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemDescription}>{item.description}</Text>
-                  <Text style={styles.itemCategory}>{getCategoryLabel(item.category)}</Text>
+          (selectedShopType === 'room' ? roomItems : characters).length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>이 카테고리에 아이템이 없습니다.</Text>
+            </View>
+          ) : (
+            (selectedShopType === 'room' ? roomItems : characters).map(item => (
+              <View key={item.id} style={styles.itemCard}>
+                <View style={styles.itemLeft}>
+                  {selectedShopType === 'room' ? (
+                    <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+                  ) : (
+                    <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+                  )}
+                  <View style={styles.itemInfo}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemDescription}>{item.description}</Text>
+                    {selectedShopType === 'room' && 'category' in item && (
+                      <Text style={styles.itemCategory}>{getCategoryLabel((item as RoomItem).category)}</Text>
+                    )}
+                    {selectedShopType === 'character' && (
+                      <Text style={styles.itemCategory}>레어도: {(item as Character).rarity}</Text>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.itemRight}>
+                  <Text style={styles.itemPrice}>💰 {item.price}</Text>
+                  {item.isOwned ? (
+                    <View style={styles.ownedBadge}>
+                      <Text style={styles.ownedText}>소유함</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={[
+                        styles.purchaseButton,
+                        userGameData && userGameData.coins < item.price && styles.disabledButton,
+                        purchasingItems.has(item.id) && styles.purchasingButton,
+                      ]}
+                      onPress={() => handlePurchase(item)}
+                      disabled={
+                        purchasingItems.has(item.id) || 
+                        !!(userGameData && userGameData.coins < item.price) ||
+                        item.isOwned
+                      }
+                    >
+                      <Text style={styles.purchaseButtonText}>
+                        {purchasingItems.has(item.id) ? '구매 중...' : '구매'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
-              <View style={styles.itemRight}>
-                <Text style={styles.itemPrice}>💰 {item.price}</Text>
-                {item.isOwned ? (
-                  <View style={styles.ownedBadge}>
-                    <Text style={styles.ownedText}>소유함</Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={[
-                      styles.purchaseButton,
-                      userGameData && userGameData.coins < item.price && styles.disabledButton,
-                      purchasingItems.has(item.id) && styles.purchasingButton,
-                    ]}
-                    onPress={() => handlePurchase(item)}
-                    disabled={
-                      purchasingItems.has(item.id) || 
-                      !!(userGameData && userGameData.coins < item.price)
-                    }
-                  >
-                    <Text style={styles.purchaseButtonText}>
-                      {purchasingItems.has(item.id) ? '구매 중...' : '구매'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          ))
+            ))
+          )
         )}
       </ScrollView>
     </SafeAreaWrapper>
@@ -214,34 +318,67 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  categoryContainer: {
+  shopTypeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#fcf8f9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3e7eb',
+  },
+  shopTypeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: '#e0e0e0',
+  },
+  selectedShopTypeButton: {
+    backgroundColor: '#6366F1',
+  },
+  shopTypeButtonText: {
+    color: '#1b0d12',
+    fontWeight: 'bold',
+  },
+  selectedShopTypeButtonText: {
+    color: 'white',
+  },
+  categoryScroll: {
+    flexGrow: 0,
+  },
+  categoryContainer: {
+    alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   categoryButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    height: 38,
+    paddingVertical: 0,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 12,
+    marginRight: 10,
     backgroundColor: 'white',
-    borderRadius: 20,
+    borderRadius: 19,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 2,
+    elevation: 2,
   },
   selectedCategoryButton: {
     backgroundColor: '#6366F1',
   },
   categoryEmoji: {
-    fontSize: 20,
-    marginBottom: 4,
+    fontSize: 16,
+    marginRight: 6,
+    lineHeight: 20, // Add lineHeight
   },
   categoryLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#1b0d12',
     fontWeight: '600',
+    lineHeight: 20, // Add lineHeight
   },
   selectedCategoryLabel: {
     color: 'white',
@@ -249,6 +386,17 @@ const styles = StyleSheet.create({
   itemsContainer: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  loadingState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  loadingStateText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#6366F1',
   },
   emptyState: {
     alignItems: 'center',
@@ -276,6 +424,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+  itemImage: {
+    width: 60,
+    height: 60,
+    marginRight: 12,
+    borderRadius: 8,
+    resizeMode: 'contain',
   },
   itemEmoji: {
     fontSize: 32,
@@ -339,4 +494,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ShopScreen; 
+export default ShopScreen;

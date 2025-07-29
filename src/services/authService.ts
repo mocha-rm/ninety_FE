@@ -1,24 +1,17 @@
 import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  SignUpRequest,
-  LoginRequest,
-  GoogleOAuth2Request,
-  UserResponse,
-  UserJwtResponse,
-  ApiResponse,
-} from '../types/auth';
+import { UserJwtResponse } from '../types/auth';
 
 class AuthService {
   // 회원가입
-  async signUp(data: SignUpRequest): Promise<UserResponse> {
-    const response = await api.post<ApiResponse<UserResponse>>('/api/signup', data);
+  async signUp(data: any): Promise<UserJwtResponse> {
+    const response = await api.post<any>('/signup', data);
     return response.data.data;
   }
 
   // 이메일/비밀번호 로그인
-  async login(data: LoginRequest): Promise<UserJwtResponse> {
-    const response = await api.post<ApiResponse<UserJwtResponse>>('/api/login', data);
+  async login(data: any): Promise<UserJwtResponse> {
+    const response = await api.post<any>('/login', data);
     const userData = response.data.data;
     
     // 토큰 저장
@@ -30,8 +23,8 @@ class AuthService {
   }
 
   // 구글 OAuth2 로그인
-  async googleLogin(data: GoogleOAuth2Request): Promise<UserJwtResponse> {
-    const response = await api.post<UserJwtResponse>('/api/oauth2/google', data);
+  async googleLogin(data: any): Promise<UserJwtResponse> {
+    const response = await api.post<UserJwtResponse>('/oauth2/google', data);
     const userData = response.data;
     
     // 토큰 저장
@@ -45,7 +38,7 @@ class AuthService {
   // 로그아웃
   async logout(): Promise<void> {
     try {
-      await api.post('/api/logout');
+      await api.post('/logout');
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {

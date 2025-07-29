@@ -4,15 +4,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // 개발 환경에 따른 BASE_URL 설정
 const getBaseUrl = () => {
   if (__DEV__) {
-    // 실제 기기에서 테스트할 때는 컴퓨터의 IP 주소를 사용해야 합니다
-    return 'http://172.30.1.63:8080'; // 실제 컴퓨터 IP 주소
-    
     // 시뮬레이터에서만 사용할 수 있는 localhost
-    // return 'http://localhost:8080';
+    return 'http://172.30.1.41:8080/api';
   }
   
   // 프로덕션 환경에서는 실제 서버 URL 사용
-  return 'https://your-production-server.com';
+  return 'https://your-production-server.com/api';
 };
 
 const BASE_URL = getBaseUrl();
@@ -77,20 +74,20 @@ class ApiService {
 
           // 401 에러의 경우 토큰 갱신 시도
           if (error.response?.status === 401) {
-            try {
-              const refreshToken = await AsyncStorage.getItem('refreshToken');
-              if (refreshToken) {
-                const response = await this.refreshToken(refreshToken);
-                const { accessToken } = response.data;
-                
-                await AsyncStorage.setItem('accessToken', accessToken);
-                originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-                
-                return this.api(originalRequest);
-              }
-            } catch (refreshError) {
-              console.error('Token refresh failed:', refreshError);
-            }
+            // try {
+            //   const refreshToken = await AsyncStorage.getItem('refreshToken');
+            //   if (refreshToken) {
+            //     const response = await this.refreshToken(refreshToken);
+            //     const { accessToken } = response.data;
+            //     
+            //     await AsyncStorage.setItem('accessToken', accessToken);
+            //     originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            //     
+            //     return this.api(originalRequest);
+            //   }
+            // } catch (refreshError) {
+            //   console.error('Token refresh failed:', refreshError);
+            // }
           }
 
           // 토큰 갱신 실패 또는 404 에러의 경우 자동 로그아웃
@@ -126,7 +123,7 @@ class ApiService {
   public async testConnection(): Promise<boolean> {
     try {
       console.log('Testing API connection to:', BASE_URL);
-      const response = await this.api.get('/api/health'); // 또는 다른 간단한 엔드포인트
+      const response = await this.api.get('/'); // 또는 다른 간단한 엔드포인트
       console.log('Connection test successful:', response.status);
       return true;
     } catch (error) {

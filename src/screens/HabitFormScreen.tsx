@@ -13,7 +13,8 @@ import CustomButton from '../components/CustomButton';
 import CustomInput from '../components/CustomInput';
 import Logo from '../components/Logo';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
-import habitService, { Habit, CreateHabitRequest, UpdateHabitRequest } from '../services/habitService';
+import habitService from '../services/habitService';
+import { Habit, HabitRequest } from '../types/habit';
 
 interface HabitFormScreenProps {
   route?: {
@@ -70,31 +71,22 @@ const HabitFormScreen: React.FC<HabitFormScreenProps> = ({ route, navigation }) 
     try {
       setLoading(true);
       
+      const habitData: HabitRequest = {
+        title: title.trim(),
+        description: description.trim(),
+        startAt,
+        repeatDays: selectedDays,
+        isAlarmEnabled,
+        reminderTime: isAlarmEnabled ? `${reminderTime}:00` : '00:00:00',
+      };
+
       if (isEdit && habit) {
-        const updateData: UpdateHabitRequest = {
-          title: title.trim(),
-          description: description.trim() || undefined,
-          startAt,
-          repeatDays: selectedDays,
-          isAlarmEnabled,
-          reminderTime: isAlarmEnabled ? reminderTime : undefined,
-        };
-        
-        await habitService.updateHabit(habit.id, updateData);
+        await habitService.updateHabit(habit.id, habitData);
         Alert.alert('성공', '습관이 수정되었습니다.', [
           { text: '확인', onPress: () => navigation?.goBack() }
         ]);
       } else {
-        const createData: CreateHabitRequest = {
-          title: title.trim(),
-          description: description.trim() || undefined,
-          startAt,
-          repeatDays: selectedDays,
-          isAlarmEnabled,
-          reminderTime: isAlarmEnabled ? reminderTime : undefined,
-        };
-        
-        await habitService.createHabit(createData);
+        await habitService.createHabit(habitData);
         Alert.alert('성공', '새 습관이 생성되었습니다.', [
           { text: '확인', onPress: () => navigation?.goBack() }
         ]);

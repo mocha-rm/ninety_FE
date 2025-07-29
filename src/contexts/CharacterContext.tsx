@@ -1,21 +1,19 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Character, UserCharacter } from '../types/character';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { UserCharacter, Character, CharacterRarity } from '../types/character';
+import userCharacterService from '../services/userCharacterService';
 import characterService from '../services/characterService';
 import { useAuth } from './AuthContext';
-import { useGame } from './GameContext';
+import { Alert } from 'react-native';
 
 interface CharacterContextType {
-  characterShop: Character[];
   userCharacters: UserCharacter[];
   activeCharacter: UserCharacter | null;
   loading: boolean;
-  refreshCharacterShop: () => Promise<void>;
-  refreshUserCharacters: () => Promise<void>;
+  refreshCharacters: () => Promise<void>;
+  updateUserCharacterStatus: (userCharacterId: number, isActive: boolean, nickname?: string) => Promise<boolean>;
   purchaseCharacter: (characterId: number) => Promise<boolean>;
-  adoptCharacter: (characterId: number, nickname?: string) => Promise<boolean>;
-  feedCharacter: (characterId: number, foodType: 'basic' | 'premium' | 'special') => Promise<boolean>;
-  playWithCharacter: (characterId: number, activityType: 'pet' | 'play' | 'walk') => Promise<boolean>;
-  setActiveCharacter: (characterId: number) => Promise<boolean>;
+  feedCharacter: (userCharacterId: number) => Promise<boolean>;
+  playWithCharacter: (userCharacterId: number) => Promise<boolean>;
 }
 
 const CharacterContext = createContext<CharacterContextType | undefined>(undefined);
@@ -34,203 +32,126 @@ interface CharacterProviderProps {
 
 export const CharacterProvider: React.FC<CharacterProviderProps> = ({ children }) => {
   const { user } = useAuth();
-  const { userGameData } = useGame();
-  const [characterShop, setCharacterShop] = useState<Character[]>([]);
   const [userCharacters, setUserCharacters] = useState<UserCharacter[]>([]);
-  const [activeCharacter, setActiveCharacterState] = useState<UserCharacter | null>(null);
+  const [activeCharacter, setActiveCharacter] = useState<UserCharacter | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadCharacterShop = async () => {
-    if (!user) return;
-
-    try {
-      const characters = await characterService.getCharacterShop();
-      setCharacterShop(characters);
-    } catch (error) {
-      console.error('캐릭터 상점 로드 실패:', error);
-    }
-  };
-
-  const loadUserCharacters = async () => {
+  const loadCharacters = useCallback(async () => {
     if (!user) {
       setUserCharacters([]);
-      setActiveCharacterState(null);
+      setActiveCharacter(null);
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      const characters = await characterService.getUserCharacters();
-      setUserCharacters(characters);
-      
-      // 활성 캐릭터 찾기
-      const active = characters.find(char => char.isActive);
-      setActiveCharacterState(active || null);
+      const userCharResponse = await userCharacterService.getUserCharacters();
+      const fetchedUserCharacters = userCharResponse.content;
+
+      // 각 UserCharacter에 Character 상세 정보 주입
+      const charactersWithDetails = await Promise.all(fetchedUserCharacters.map(async (uc) => {
+        try {
+          const charDetail = await characterService.getCharacter(uc.characterId);
+          return { ...uc, character: charDetail };
+        } catch (error) {
+          console.error(`Failed to fetch details for character ${uc.characterId}:`, error);
+          // Fallback character object to prevent ReferenceError
+          return {
+            ...uc,
+            character: {
+              id: uc.characterId,
+              name: 'Unknown Character',
+              description: 'Failed to load details',
+              rarity: CharacterRarity.COMMON, // Default rarity
+              price: 0,
+              imageUrl: 'https://via.placeholder.com/60', // Placeholder image
+              createdAt: new Date().toISOString(),
+            },
+          };
+        }
+      }));
+
+      setUserCharacters(charactersWithDetails);
+      const active = charactersWithDetails.find(char => char.isActive);
+      setActiveCharacter(active || null);
     } catch (error) {
-      console.error('사용자 캐릭터 로드 실패:', error);
+      console.error('캐릭터 데이터 로드 실패:', error);
+      Alert.alert('오류', '캐릭터 데이터를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
+  }, [user]);
+
+  useEffect(() => {
+    loadCharacters();
+  }, [user, loadCharacters]);
+
+  const refreshCharacters = async () => {
+    await loadCharacters();
   };
 
-  const refreshCharacterShop = async () => {
-    await loadCharacterShop();
-  };
-
-  const refreshUserCharacters = async () => {
-    await loadUserCharacters();
+  const updateUserCharacterStatus = async (userCharacterId: number, isActive: boolean, nickname?: string): Promise<boolean> => {
+    try {
+      await userCharacterService.updateUserCharacter(userCharacterId, { isActive, nickname });
+      await refreshCharacters();
+      return true;
+    } catch (error: any) {
+      console.error('캐릭터 상태 업데이트 실패:', error);
+      const message = error.response?.data?.message || '캐릭터 상태 업데이트에 실패했습니다.';
+      Alert.alert('오류', message);
+      return false;
+    }
   };
 
   const purchaseCharacter = async (characterId: number): Promise<boolean> => {
-    if (!userGameData) return false;
-
     try {
-      const purchasedCharacter = await characterService.purchaseCharacter(characterId);
-      
-      // 상점 캐릭터 목록 업데이트
-      setCharacterShop(prev => 
-        prev.map(char => 
-          char.id === characterId 
-            ? { ...char, isOwned: true }
-            : char
-        )
-      );
-      
+      await userCharacterService.purchaseCharacter(characterId);
+      await refreshCharacters();
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('캐릭터 구매 실패:', error);
+      const message = error.response?.data?.message || '캐릭터 구매에 실패했습니다.';
+      Alert.alert('오류', message);
       return false;
     }
   };
 
-  const adoptCharacter = async (characterId: number, nickname?: string): Promise<boolean> => {
+  const feedCharacter = async (userCharacterId: number): Promise<boolean> => {
     try {
-      const adoptedCharacter = await characterService.adoptCharacter({
-        characterId,
-        nickname
-      });
-      
-      // 사용자 캐릭터 목록 업데이트
-      setUserCharacters(prev => [...prev, adoptedCharacter]);
-      
-      // 활성 캐릭터로 설정
-      setActiveCharacterState(adoptedCharacter);
-      
+      await userCharacterService.feedCharacter(userCharacterId);
+      await refreshCharacters();
       return true;
-    } catch (error) {
-      console.error('캐릭터 입양 실패:', error);
+    } catch (error: any) {
+      console.error('먹이 주기 실패:', error);
+      const message = error.response?.data?.message || '먹이 주기에 실패했습니다.';
+      Alert.alert('오류', message);
       return false;
     }
   };
 
-  const feedCharacter = async (characterId: number, foodType: 'basic' | 'premium' | 'special'): Promise<boolean> => {
+  const playWithCharacter = async (userCharacterId: number): Promise<boolean> => {
     try {
-      const result = await characterService.feedCharacter(characterId, { foodType });
-      
-      // 캐릭터 정보 업데이트
-      setUserCharacters(prev => 
-        prev.map(char => 
-          char.id === characterId 
-            ? { 
-                ...char, 
-                happiness: result.newHappiness,
-                experience: result.newExperience
-              }
-            : char
-        )
-      );
-      
-      // 활성 캐릭터도 업데이트
-      if (activeCharacter?.id === characterId) {
-        setActiveCharacterState(prev => prev ? {
-          ...prev,
-          happiness: result.newHappiness,
-          experience: result.newExperience
-        } : null);
-      }
-      
+      await userCharacterService.playWithCharacter(userCharacterId);
+      await refreshCharacters();
       return true;
-    } catch (error) {
-      console.error('캐릭터 먹이 주기 실패:', error);
+    } catch (error: any) {
+      console.error('놀아주기 실패:', error);
+      const message = error.response?.data?.message || '놀아주기에 실패했습니다.';
+      Alert.alert('오류', message);
       return false;
     }
   };
-
-  const playWithCharacter = async (characterId: number, activityType: 'pet' | 'play' | 'walk'): Promise<boolean> => {
-    try {
-      const result = await characterService.playWithCharacter(characterId, { activityType });
-      
-      // 캐릭터 정보 업데이트
-      setUserCharacters(prev => 
-        prev.map(char => 
-          char.id === characterId 
-            ? { 
-                ...char, 
-                happiness: result.newHappiness,
-                experience: result.newExperience
-              }
-            : char
-        )
-      );
-      
-      // 활성 캐릭터도 업데이트
-      if (activeCharacter?.id === characterId) {
-        setActiveCharacterState(prev => prev ? {
-          ...prev,
-          happiness: result.newHappiness,
-          experience: result.newExperience
-        } : null);
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('캐릭터와 놀기 실패:', error);
-      return false;
-    }
-  };
-
-  const setActiveCharacter = async (characterId: number): Promise<boolean> => {
-    try {
-      const updatedCharacter = await characterService.updateUserCharacter(characterId, {
-        isActive: true
-      });
-      
-      // 모든 캐릭터의 활성 상태 업데이트
-      setUserCharacters(prev => 
-        prev.map(char => ({
-          ...char,
-          isActive: char.id === characterId
-        }))
-      );
-      
-      // 활성 캐릭터 설정
-      setActiveCharacterState(updatedCharacter);
-      
-      return true;
-    } catch (error) {
-      console.error('활성 캐릭터 설정 실패:', error);
-      return false;
-    }
-  };
-
-  useEffect(() => {
-    loadCharacterShop();
-    loadUserCharacters();
-  }, [user]);
 
   const value: CharacterContextType = {
-    characterShop,
     userCharacters,
     activeCharacter,
     loading,
-    refreshCharacterShop,
-    refreshUserCharacters,
+    refreshCharacters,
+    updateUserCharacterStatus,
     purchaseCharacter,
-    adoptCharacter,
     feedCharacter,
     playWithCharacter,
-    setActiveCharacter,
   };
 
   return (
@@ -238,4 +159,4 @@ export const CharacterProvider: React.FC<CharacterProviderProps> = ({ children }
       {children}
     </CharacterContext.Provider>
   );
-}; 
+};

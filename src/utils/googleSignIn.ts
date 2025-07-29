@@ -1,3 +1,5 @@
+// 패키지가 설치되어 있지 않으면 아래 명령어로 설치하세요:
+// npm install @react-native-google-signin/google-signin
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 // Google Sign-In 설정

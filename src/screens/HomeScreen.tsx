@@ -16,7 +16,8 @@ import CustomButton from '../components/CustomButton';
 import Logo from '../components/Logo';
 import GameStats from '../components/GameStats';
 import SafeAreaWrapper from '../components/SafeAreaWrapper';
-import habitService, { Habit, HabitsPageResponse } from '../services/habitService';
+import habitService from '../services/habitService';
+import { Habit, HabitsPageResponse } from '../types/habit';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
@@ -24,7 +25,7 @@ type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { user, logout } = useAuth();
-  const { earnCoins, earnExperience } = useGame();
+  const { refreshGameData } = useGame();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
@@ -80,16 +81,17 @@ const HomeScreen: React.FC = () => {
     try {
       setCompletingHabits(prev => new Set(prev).add(habit.id));
       
-      // 습관 완료 처리
-      await habitService.completeHabit(habit.id);
+      // 습관 완료 처리 및 보상 받기
+      const reward = await habitService.completeHabit(habit.id);
       
-      // 게임 보상 지급
-      await earnCoins(10); // 습관 완료시 10코인
-      await earnExperience(20); // 습관 완료시 20경험치
+      // 게임 컨텍스트 업데이트
+      refreshGameData();
       
       Alert.alert(
         '🎉 습관 완료!',
-        `축하합니다!\n💰 +10 코인\n⭐ +20 경험치`,
+        `축하합니다!
+💰 +${reward.coinsEarned} 코인
+⭐ +${reward.experienceEarned} 경험치`,
         [{ text: '확인' }]
       );
       
@@ -97,7 +99,8 @@ const HomeScreen: React.FC = () => {
       loadHabits(0);
     } catch (error: any) {
       console.error('습관 완료 실패:', error);
-      Alert.alert('오류', '습관 완료에 실패했습니다.');
+      const message = error.response?.data?.message || '습관 완료에 실패했습니다.';
+      Alert.alert('오류', message);
     } finally {
       setCompletingHabits(prev => {
         const newSet = new Set(prev);
