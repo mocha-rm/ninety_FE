@@ -1,6 +1,8 @@
 module.exports = {
   presets: [
-    ['babel-preset-expo', { reanimated: false }], // ← 자동 삽입 방지
+    'babel-preset-expo',
   ],
-  plugins: ['react-native-worklets/plugin'],
+  plugins: [
+    'react-native-reanimated/plugin',
+  ],
 };

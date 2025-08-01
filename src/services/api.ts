@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const getBaseUrl = () => {
   if (__DEV__) {
     // 시뮬레이터에서만 사용할 수 있는 localhost
-    return 'http://172.30.1.41:8080/api';
+    return 'http://172.30.1.31:8080/api';
   }
   
   // 프로덕션 환경에서는 실제 서버 URL 사용
